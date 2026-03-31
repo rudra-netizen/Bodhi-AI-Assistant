@@ -1,0 +1,61 @@
+.home-container {
+  display: flex;
+  height: 100vh;
+  background: var(--bg);
+}
+
+.sidebar-toggle {
+  display: none;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .home-container {
+    flex-direction: column;
+  }
+
+  .sidebar-toggle {
+    display: block;
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 100;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .sidebar-toggle:hover {
+    background: var(--primary-hover);
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 98;
+  }
+}
+
+@media (max-width: 640px) {
+  .sidebar-toggle {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    top: 12px;
+    left: 12px;
+  }
+}
