@@ -17,7 +17,7 @@ const Home = () => {
 
   // 🔹 Socket setup
   useEffect(() => {
-    const newSocket = io("http://localhost:8000", {
+    const newSocket = io("https://bodhi-ai-assistant.onrender.com", {
       withCredentials: true,
     });
 
@@ -85,9 +85,12 @@ const Home = () => {
     /* Load previous chats from API */
     const loadChats = async () => {
       try {
-        const response = await axios.get("http://localhost:8000/api/chat", {
-          withCredentials: true,
-        });
+        const response = await axios.get(
+          "https://bodhi-ai-assistant.onrender.com/api/chat",
+          {
+            withCredentials: true,
+          },
+        );
 
         if (response.data.chats && response.data.chats.length > 0) {
           /* Map chats from DB format to component format */
@@ -159,7 +162,7 @@ const Home = () => {
 
     axios
       .post(
-        "http://localhost:8000/api/chat",
+        "https://bodhi-ai-assistant.onrender.com/api/chat",
         {
           title: chatTitle || "New Chat",
         },
@@ -210,7 +213,7 @@ const Home = () => {
     /* Fetch messages for this chat from backend */
     try {
       const response = await axios.get(
-        `http://localhost:8000/api/chat/${chatId}/messages`,
+        `https://bodhi-ai-assistant.onrender.com/api/chat/${chatId}/messages`, // https://bodhi-ai-assistant.onrender.com/
         {
           withCredentials: true,
         },
@@ -237,9 +240,12 @@ const Home = () => {
   const handleDeleteChat = async (chatId) => {
     try {
       /* Delete chat from backend */
-      await axios.delete(`http://localhost:8000/api/chat/${chatId}`, {
-        withCredentials: true,
-      });
+      await axios.delete(
+        `https://bodhi-ai-assistant.onrender.com/api/chat/${chatId}`,
+        {
+          withCredentials: true,
+        },
+      );
 
       /* Remove from frontend state */
       setPreviousChats((prev) => prev.filter((c) => c.id !== chatId));

@@ -25,7 +25,7 @@ export default function Register() {
 
     try {
       const response = await axios.post(
-        "http://localhost:8000/api/auth/register",
+        "https://bodhi-ai-assistant.onrender.com/api/auth/register",
         {
           fullname: {
             firstname: form.firstname,

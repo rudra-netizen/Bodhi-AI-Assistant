@@ -19,7 +19,7 @@ export default function Login() {
 
     try {
       const response = await axios.post(
-        "http://localhost:8000/api/auth/login",
+        "https://bodhi-ai-assistant.onrender.com/api/auth/login",
         form,
         {
           withCredentials: true,
