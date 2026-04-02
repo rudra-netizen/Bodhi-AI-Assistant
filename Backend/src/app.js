@@ -5,8 +5,11 @@ const chatRoutes = require("./routes/chat.routes");
 const cors = require("cors");
 const path = require("path");
 const app = express();
+
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+
 app.get("/", (req, res) => {
-  res.send("Bodhi AI Assistant is running 🚀");
+  return res.redirect(FRONTEND_URL);
 });
 app.use(
   cors({

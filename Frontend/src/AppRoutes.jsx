@@ -25,6 +25,7 @@ import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 // Pages import
+import Welcome from "./pages/Welcome";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -32,8 +33,7 @@ import Register from "./pages/Register";
 const AppRoutes = () => {
   return (
     <Routes>
-      {/* Default path ko Login par redirect kar diya */}
-      <Route path="/" element={<Navigate to="/login" />} />
+      <Route path="/" element={<Welcome />} />
 
       {/* Auth Pages */}
       <Route path="/login" element={<Login />} />
@@ -43,7 +43,7 @@ const AppRoutes = () => {
       <Route path="/home" element={<Home />} />
 
       {/* Galat URL handle karne ke liye */}
-      <Route path="*" element={<Navigate to="/login" />} />
+      <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );
 };
