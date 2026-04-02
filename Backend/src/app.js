@@ -5,13 +5,12 @@ const chatRoutes = require("./routes/chat.routes");
 const cors = require("cors");
 const path = require("path");
 const app = express();
-
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
-const CORS_ORIGINS = [FRONTEND_URL, "http://localhost:5174"];
-
+app.get("/", (req, res) => {
+  res.send("Bodhi AI Assistant is running 🚀");
+});
 app.use(
   cors({
-    origin: CORS_ORIGINS,
+    origin: ["http://localhost:5173", "http://localhost:5174"],
     credentials: true,
   }),
 );
