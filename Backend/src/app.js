@@ -7,13 +7,11 @@ const path = require("path");
 const app = express();
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+const CORS_ORIGINS = [FRONTEND_URL, "http://localhost:5174"];
 
-app.get("/", (req, res) => {
-  return res.redirect(FRONTEND_URL);
-});
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174"],
+    origin: CORS_ORIGINS,
     credentials: true,
   }),
 );
@@ -23,7 +21,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "../public")));
 app.use("/api/auth", authRoutes);
 app.use("/api/chat", chatRoutes);
-app.use((req, res) => {
+app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });
 module.exports = app;
