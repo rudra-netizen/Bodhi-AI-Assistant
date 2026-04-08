@@ -85,7 +85,7 @@ npm run dev
 ## 🌐 Live Demo
 
 Backend Live URL:  
-https://bodhi-ai-assistant.onrender.com
+https://bodhi-ai-assistant.onrender.com/login
 
 API Example:  
 `/api/chat`
