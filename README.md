@@ -52,7 +52,7 @@ Create a `.env` file inside backend folder:
 
 PORT=3000
 MONGO_URI=your_mongodb_uri
-OPENAI_API_KEY=your_openai_key
+GEMINI_API_KEY=your_GEMINI_key
 PINECONE_API_KEY=your_key
 JWT_SECRET=your_secret
 
@@ -70,7 +70,7 @@ git clone https://github.com/rudra-netizen/Bodhi-AI-Assistant.git
 
 cd backend
 npm install
-npm start
+npx nodemon server.js
 
 ---
 
@@ -86,9 +86,6 @@ npm run dev
 
 Backend Live URL:  
 https://bodhi-ai-assistant.onrender.com/login
-
-API Example:  
-`/api/chat`
 
 ---
 
@@ -123,8 +120,6 @@ Use Postman:
 
 ## 📈 Future Improvements
 
-- RAG (Retrieval-Augmented Generation)
-- Chat memory
 - Streaming responses
 - Mobile UI
 - Multi-language support
