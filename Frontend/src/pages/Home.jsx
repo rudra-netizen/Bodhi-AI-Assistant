@@ -4,6 +4,11 @@ import ChatWindow from "../components/ChatWindow";
 import "./Home.css";
 import { io } from "socket.io-client";
 import axios from "axios";
+
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:8000";
+
 const Home = () => {
   const [messages, setMessages] = useState([]);
   const [userInput, setUserInput] = useState("");
@@ -17,7 +22,7 @@ const Home = () => {
 
   // 🔹 Socket setup
   useEffect(() => {
-    const newSocket = io("https://bodhi-ai-assistant.onrender.com", {
+    const newSocket = io(SOCKET_URL, {
       withCredentials: true,
     });
 
@@ -85,12 +90,9 @@ const Home = () => {
     /* Load previous chats from API */
     const loadChats = async () => {
       try {
-        const response = await axios.get(
-          "https://bodhi-ai-assistant.onrender.com/api/chat",
-          {
-            withCredentials: true,
-          },
-        );
+        const response = await axios.get(`${API_BASE_URL}/api/chat`, {
+          withCredentials: true,
+        });
 
         if (response.data.chats && response.data.chats.length > 0) {
           /* Map chats from DB format to component format */
@@ -162,7 +164,7 @@ const Home = () => {
 
     axios
       .post(
-        "https://bodhi-ai-assistant.onrender.com/api/chat",
+        `${API_BASE_URL}/api/chat`,
         {
           title: chatTitle || "New Chat",
         },
@@ -213,7 +215,7 @@ const Home = () => {
     /* Fetch messages for this chat from backend */
     try {
       const response = await axios.get(
-        `https://bodhi-ai-assistant.onrender.com/api/chat/${chatId}/messages`, // https://bodhi-ai-assistant.onrender.com/
+        `${API_BASE_URL}/api/chat/${chatId}/messages`,
         {
           withCredentials: true,
         },
@@ -240,12 +242,9 @@ const Home = () => {
   const handleDeleteChat = async (chatId) => {
     try {
       /* Delete chat from backend */
-      await axios.delete(
-        `https://bodhi-ai-assistant.onrender.com/api/chat/${chatId}`,
-        {
-          withCredentials: true,
-        },
-      );
+      await axios.delete(`${API_BASE_URL}/api/chat/${chatId}`, {
+        withCredentials: true,
+      });
 
       /* Remove from frontend state */
       setPreviousChats((prev) => prev.filter((c) => c.id !== chatId));

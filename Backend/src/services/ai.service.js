@@ -9,7 +9,7 @@ async function generateResponse(prompt) {
     console.log("[AI_SERVICE] Starting generateResponse...");
     console.time("[AI_SERVICE] Gemini API call");
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash",
       contents: prompt,
       config: {
         temperature: 0.7,

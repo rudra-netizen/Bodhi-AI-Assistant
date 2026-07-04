@@ -1,38 +1,45 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
 import axios from "axios";
 
-export default function Login() {
-  const [form, setForm] = useState({ email: "", password: "" });
-  const navigate = useNavigate();
-  const [submitting, setSubmitting] = useState(false);
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
-  function handleChange(e) {
-    const { name, value } = e.target;
-    setForm({ ...form, [name]: value });
-  }
+export default function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   async function handleSubmit(e) {
     e.preventDefault();
+    setError("");
+
+    if (!email || !password) {
+      setError("Please enter both email and password.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
       const response = await axios.post(
-        "https://bodhi-ai-assistant.onrender.com/api/auth/login",
-        form,
-        {
-          withCredentials: true,
-        },
+        `${API_BASE_URL}/api/auth/login`,
+        { email, password },
+        { withCredentials: true },
       );
 
-      /* Login successful - navigate to home */
       if (response.status === 200) {
         navigate("/home");
       }
     } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        "Login failed. Please check your email and password.";
+      setError(message);
+      alert(message);
       console.error("Login error:", error);
-      alert(error.response?.data?.message || "Login failed. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -46,15 +53,18 @@ export default function Login() {
         </div>
         <p className="subtitle">Sign in to continue</p>
 
+        {error && <div className="error-message">{error}</div>}
+
         <form onSubmit={handleSubmit}>
           <div className="field">
             <label>Email</label>
             <input
               type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={submitting}
             />
           </div>
 
@@ -62,63 +72,23 @@ export default function Login() {
             <label>Password</label>
             <input
               type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={submitting}
             />
           </div>
 
-          <button className="btn-main">
+          <button className="btn-main" type="submit" disabled={submitting}>
             {submitting ? "Signing in..." : "Login"}
           </button>
         </form>
 
         <div className="auth-footer">
-          New here? <Link to="/register">Create account</Link>
+          Don't have an account? <Link to="/register">Create one</Link>
         </div>
       </div>
     </div>
   );
 }
-
-/*  <div className="auth-wrapper">
-  <div className="auth-card">
-
-    <div className="brand-logo">Bodhi <span>AI</span></div>
-    <p className="subtitle">Sign in to continue</p>
-
-    <form onSubmit={handleSubmit}>
-      <div className="field">
-        <label>Email</label>
-        <input
-          type="email"
-          name="email"
-          value={form.email}
-          onChange={handleChange}
-          required
-        />
-      </div>
-
-      <div className="field">
-        <label>Password</label>
-        <input
-          type="password"
-          name="password"
-          value={form.password}
-          onChange={handleChange}
-          required
-        />
-      </div>
-
-      <button className="btn-main">
-        {submitting ? "Signing in..." : "Login"}
-      </button>
-    </form>
-
-    <div className="auth-footer">
-      New here? <Link to="/register">Create account</Link>
-    </div>
-
-  </div>
-</div>*/

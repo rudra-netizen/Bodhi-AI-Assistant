@@ -1,50 +1,67 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { GoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
 export default function Register() {
-  const [form, setForm] = useState({
-    firstname: "",
-    lastname: "",
-    email: "",
-    password: "",
-  });
-
-  const navigate = useNavigate();
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [credentialToken, setCredentialToken] = useState(null);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const navigate = useNavigate();
 
-  function handleChange(e) {
-    const { name, value } = e.target;
-    setForm({ ...form, [name]: value });
+  async function handleGoogleSuccess(credentialResponse) {
+    setError("");
+    setCredentialToken(credentialResponse.credential);
+    setShowPasswordForm(true);
   }
 
-  async function handleSubmit(e) {
+  function handleGoogleError() {
+    setError("Google signup failed. Please try again.");
+  }
+
+  async function handleSubmitPassword(e) {
     e.preventDefault();
+    setError("");
+
+    // Validate password
+    if (!password || password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
       const response = await axios.post(
-        "https://bodhi-ai-assistant.onrender.com/api/auth/register",
+        `${API_BASE_URL}/api/auth/google`,
         {
-          fullname: {
-            firstname: form.firstname,
-            lastname: form.lastname,
-          },
-          email: form.email,
-          password: form.password,
+          token: credentialToken,
+          password: password,
+          action: "signup",
         },
-        { withCredentials: true },
+        {
+          withCredentials: true,
+        },
       );
 
-      /* Registration successful - navigate to login */
       if (response.status === 201) {
-        alert("Account created! Please login.");
+        alert("Account created successfully! Please login.");
         navigate("/login");
       }
     } catch (error) {
       console.error("Registration error:", error);
-      alert(
+      setError(
         error.response?.data?.message ||
           "Registration failed. Please try again.",
       );
@@ -59,55 +76,65 @@ export default function Register() {
         <div className="brand-logo">
           Bodhi <span>AI</span>
         </div>
-        <p className="subtitle">Create your account</p>
+        <p className="subtitle">
+          {showPasswordForm ? "Set your password" : "Create your account"}
+        </p>
 
-        <form onSubmit={handleSubmit}>
-          <div className="field">
-            <label>First name</label>
-            <input
-              name="firstname"
-              value={form.firstname}
-              onChange={handleChange}
-              required
+        {error && <div className="error-message">{error}</div>}
+
+        {!showPasswordForm ? (
+          <div className="oauth-section">
+            <p className="hint-text">Sign up with your Gmail account</p>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
             />
           </div>
+        ) : (
+          <form onSubmit={handleSubmitPassword}>
+            <div className="field">
+              <label>Create Password</label>
+              <input
+                type="password"
+                placeholder="At least 6 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={submitting}
+              />
+            </div>
 
-          <div className="field">
-            <label>Last name</label>
-            <input
-              name="lastname"
-              value={form.lastname}
-              onChange={handleChange}
-              required
-            />
-          </div>
+            <div className="field">
+              <label>Confirm Password</label>
+              <input
+                type="password"
+                placeholder="Re-enter password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                disabled={submitting}
+              />
+            </div>
 
-          <div className="field">
-            <label>Email</label>
-            <input
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              required
-            />
-          </div>
+            <button className="btn-main" type="submit" disabled={submitting}>
+              {submitting ? "Creating..." : "Create Account"}
+            </button>
 
-          <div className="field">
-            <label>Password</label>
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <button className="btn-main">
-            {submitting ? "Creating..." : "Register"}
-          </button>
-        </form>
+            <button
+              type="button"
+              className="btn-back"
+              onClick={() => {
+                setShowPasswordForm(false);
+                setCredentialToken(null);
+                setPassword("");
+                setConfirmPassword("");
+              }}
+              disabled={submitting}
+            >
+              Back
+            </button>
+          </form>
+        )}
 
         <div className="auth-footer">
           Already have an account? <Link to="/login">Login</Link>

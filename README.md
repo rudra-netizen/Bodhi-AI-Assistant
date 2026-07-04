@@ -13,14 +13,15 @@ Bodhi AI Assistant is a ChatGPT-like application that allows users to interact w
 ## 🧠 Features
 
 - 💬 Real-time AI chat
-- 🔐 User Authentication (Login / Signup)
+- 🔐 Google OAuth Authentication (Sign up with Gmail)
+- 🔒 Secure custom password setup
 - 🧾 Chat history storage (MongoDB)
 - ⚡ Fast and scalable backend
-- 🔒 Protected API routes
+- 🔒 Protected API routes with JWT
 - 🌐 Deployed on Render
 - 🔌 Socket-based real-time communication
-- 🧠 AI integration (LLM)
-- ⚡ Integrated Pinecone Vector Database
+- 🤖 AI integration (Gemini API)
+- 📚 Integrated Pinecone Vector Database for memory
 
 ---
 
@@ -48,13 +49,26 @@ Bodhi AI Assistant is a ChatGPT-like application that allows users to interact w
 
 ## ⚙️ Environment Variables
 
-Create a `.env` file inside backend folder:
+### Backend (.env)
 
-PORT=3000
+```
+PORT=3001
 MONGO_URI=your_mongodb_uri
-GEMINI_API_KEY=your_GEMINI_key
-PINECONE_API_KEY=your_key
-JWT_SECRET=your_secret
+JWT_SECRET_KEY=your_jwt_secret
+GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+GEMINI_API_KEY=your_gemini_key
+PINECONE_API_KEY=your_pinecone_key
+```
+
+### Frontend (.env)
+
+```
+VITE_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+VITE_API_BASE_URL=http://localhost:3001
+VITE_SOCKET_URL=http://localhost:3001
+```
+
+**Note**: Visit [OAUTH_SETUP.md](./OAUTH_SETUP.md) for detailed Google OAuth configuration.
 
 ---
 

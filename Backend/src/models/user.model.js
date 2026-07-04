@@ -19,11 +19,23 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
+      default: null, // Optional for OAuth users
+    },
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      default: null,
+    },
+    provider: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
     },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 const userModel = mongoose.model("user", userSchema);
