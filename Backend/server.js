@@ -11,27 +11,22 @@ async function startServer() {
     await connectDB();
     initSocketServer(httpServer);
 
-    const basePort = Number(process.env.PORT || 8000);
+    const port = Number(process.env.PORT || 8000);
 
-    const tryListen = (port) => {
-      httpServer.removeAllListeners("error");
-      httpServer.on("error", (error) => {
-        if (error.code === "EADDRINUSE") {
-          const fallbackPort = port + 1;
-          console.warn(`Port ${port} is busy, trying ${fallbackPort}...`);
-          tryListen(fallbackPort);
-        } else {
-          console.error("Server error:", error);
-          process.exit(1);
-        }
-      });
+    httpServer.on("error", (error) => {
+      if (error.code === "EADDRINUSE") {
+        console.error(
+          `Port ${port} is already in use. Stop the existing process or set a different PORT.`,
+        );
+      } else {
+        console.error("Server error:", error);
+      }
+      process.exit(1);
+    });
 
-      httpServer.listen(port, () => {
-        console.log(`The server is running on port ${port}`);
-      });
-    };
-
-    tryListen(basePort);
+    httpServer.listen(port, () => {
+      console.log(`The server is running on port ${port}`);
+    });
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);
