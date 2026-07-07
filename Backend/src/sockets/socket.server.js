@@ -23,11 +23,12 @@ function initSocketServer(httpServer) {
   });
   io.use(async (socket, next) => {
     const cookies = cookie.parse(socket.handshake.headers?.cookie || "");
-    if (!cookies.token) {
-      next(new Error("Authentication Error: Invalid token"));
+    const token = cookies.token || socket.handshake.auth?.token;
+    if (!token) {
+      return next(new Error("Authentication Error: Invalid token"));
     }
     try {
-      const decoded = jwt.verify(cookies.token, process.env.JWT_SECRET_KEY);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
       const user = await userModel.findById(decoded.id);
       socket.user = user;
       next();

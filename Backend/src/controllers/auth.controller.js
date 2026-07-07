@@ -32,11 +32,13 @@ async function registerUser(req, res) {
   });
 
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY);
-  res.cookie("token", token, {
+  const cookieOptions = {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: process.env.NODE_ENV === "production",
     maxAge: 24 * 60 * 60 * 1000,
-  });
+  };
+  res.cookie("token", token, cookieOptions);
 
   return res.status(201).json({
     message: "User Registered Successfully",
@@ -67,11 +69,13 @@ async function loginUser(req, res) {
     });
   }
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY);
-  res.cookie("token", token, {
+  const cookieOptions = {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: process.env.NODE_ENV === "production",
     maxAge: 24 * 60 * 60 * 1000,
-  });
+  };
+  res.cookie("token", token, cookieOptions);
 
   res.status(200).json({
     message: "User Logged In SuccessFully",
@@ -135,11 +139,13 @@ async function googleAuth(req, res) {
       });
 
       const jwtToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY);
-      res.cookie("token", jwtToken, {
+      const cookieOptions = {
         httpOnly: true,
-        sameSite: "lax",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: process.env.NODE_ENV === "production",
         maxAge: 24 * 60 * 60 * 1000,
-      });
+      };
+      res.cookie("token", jwtToken, cookieOptions);
 
       return res.status(201).json({
         message: "Account created successfully with Google",
@@ -180,11 +186,13 @@ async function googleAuth(req, res) {
       }
 
       const jwtToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY);
-      res.cookie("token", jwtToken, {
+      const cookieOptions = {
         httpOnly: true,
-        sameSite: "lax",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: process.env.NODE_ENV === "production",
         maxAge: 24 * 60 * 60 * 1000,
-      });
+      };
+      res.cookie("token", jwtToken, cookieOptions);
 
       return res.status(200).json({
         message: "Logged in successfully",
