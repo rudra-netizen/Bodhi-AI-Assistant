@@ -20,8 +20,10 @@ const Home = () => {
   const [socket, setSocket] = useState(null);
   const initializationRef = useRef(false); // Prevent double initialization in StrictMode
 
-  // 🔹 Socket setup
+  // 🔹 Socket setup (initialize ONCE on mount)
   useEffect(() => {
+    if (socket) return; // Already initialized
+
     const newSocket = io(SOCKET_URL, {
       withCredentials: true,
     });
@@ -29,16 +31,16 @@ const Home = () => {
     setSocket(newSocket);
 
     newSocket.on("connect", () => {
-      console.log("Connected to Socket.IO server");
+      console.log("✅ Connected to Socket.IO server");
     });
 
     newSocket.on("disconnect", () => {
-      console.log("Disconnected from Socket.IO server");
+      console.log("⚠️ Disconnected from Socket.IO server");
     });
 
     /* Error handling for socket connection */
     newSocket.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
+      console.error("❌ Socket connection error:", error);
       setLoading(false);
     });
 
@@ -79,7 +81,7 @@ const Home = () => {
     return () => {
       newSocket.disconnect();
     };
-  }, [currentChatId]);
+  }, [socket]); // Only depend on socket itself, not currentChatId
 
   // 🔹 Load previous chats on mount & prompt for title
   useEffect(() => {
@@ -104,10 +106,10 @@ const Home = () => {
           }));
 
           setPreviousChats(formattedChats);
-          /* Load first chat */
+          /* Load first chat - don't clear messages immediately */
           setCurrentChatId(formattedChats[0].id);
-          setMessages([]);
         } else {
+          console.log("No chats found, creating new one...");
           /* No previous chats, create new one */
           handleNewChat();
         }
@@ -129,7 +131,15 @@ const Home = () => {
   // 🔹 Send Message (SOCKET ONLY)
   const handleSendMessage = (e) => {
     e.preventDefault();
-    if (!userInput.trim() || !socket) return;
+    if (!userInput.trim()) return;
+    if (!socket) {
+      console.warn("⚠️ Socket not connected. Reconnecting...");
+      return;
+    }
+    if (!currentChatId) {
+      console.error("❌ No chat ID available");
+      return;
+    }
 
     const inputText = userInput.trim();
 
@@ -144,6 +154,10 @@ const Home = () => {
     setUserInput("");
     setLoading(true);
 
+    console.log("📤 Emitting ai-message:", {
+      chat: currentChatId,
+      content: inputText,
+    });
     socket.emit("ai-message", {
       content: inputText,
       chat: currentChatId, // must match backend
