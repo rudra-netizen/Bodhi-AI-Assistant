@@ -17,18 +17,18 @@ const Home = () => {
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef(null);
-  const [socket, setSocket] = useState(null);
+  const socketRef = useRef(null);
   const initializationRef = useRef(false); // Prevent double initialization in StrictMode
 
   // 🔹 Socket setup (initialize ONCE on mount)
   useEffect(() => {
-    if (socket) return; // Already initialized
+    if (socketRef.current) return; // Already initialized
 
     const newSocket = io(SOCKET_URL, {
       withCredentials: true,
     });
 
-    setSocket(newSocket);
+    socketRef.current = newSocket;
 
     newSocket.on("connect", () => {
       console.log("✅ Connected to Socket.IO server");
@@ -81,7 +81,7 @@ const Home = () => {
     return () => {
       newSocket.disconnect();
     };
-  }, [socket]); // Only depend on socket itself, not currentChatId
+  }, []); // Initialize once on mount
 
   // 🔹 Load previous chats on mount & prompt for title
   useEffect(() => {
@@ -132,7 +132,7 @@ const Home = () => {
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!userInput.trim()) return;
-    if (!socket) {
+    if (!socketRef.current) {
       console.warn("⚠️ Socket not connected. Reconnecting...");
       return;
     }
@@ -158,7 +158,7 @@ const Home = () => {
       chat: currentChatId,
       content: inputText,
     });
-    socket.emit("ai-message", {
+    socketRef.current.emit("ai-message", {
       content: inputText,
       chat: currentChatId, // must match backend
     });
