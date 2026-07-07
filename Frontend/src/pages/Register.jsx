@@ -40,6 +40,13 @@ export default function Register() {
       return;
     }
 
+    if (!credentialToken) {
+      setError(
+        "Google sign-in token is missing. Please sign in with Google again.",
+      );
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -61,9 +68,12 @@ export default function Register() {
       }
     } catch (error) {
       console.error("Registration error:", error);
+      const serverMessage = error.response?.data?.message;
+      const status = error.response?.status;
       setError(
-        error.response?.data?.message ||
-          "Registration failed. Please try again.",
+        serverMessage
+          ? `Error ${status}: ${serverMessage}`
+          : error.message || "Registration failed. Please try again.",
       );
     } finally {
       setSubmitting(false);

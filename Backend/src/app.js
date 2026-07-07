@@ -11,6 +11,7 @@ app.get("/", (req, res) => {
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  "https://bodhi-ai-assistant-1.onrender.com",
   "http://localhost:5173",
   "http://localhost:5174",
 ].filter(Boolean);
