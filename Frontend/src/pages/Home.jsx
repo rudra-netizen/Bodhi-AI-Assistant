@@ -7,7 +7,7 @@ import axios from "axios";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:8000";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || API_BASE_URL;
 
 const Home = () => {
   const [messages, setMessages] = useState([]);
@@ -37,6 +37,9 @@ const Home = () => {
     newSocket.on("disconnect", () => {
       console.log("⚠️ Disconnected from Socket.IO server");
     });
+
+    console.log("🌐 Socket URL:", SOCKET_URL);
+    console.log("🌐 API base URL:", API_BASE_URL);
 
     /* Error handling for socket connection */
     newSocket.on("connect_error", (error) => {
@@ -165,7 +168,7 @@ const Home = () => {
   };
 
   // 🔹 New Chat with title prompt
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
     /* Prompt user for chat title */
     const chatTitle = prompt("Enter a title for this chat:", "New Chat");
 
@@ -174,49 +177,33 @@ const Home = () => {
       return;
     }
 
-    const newChatId = Date.now().toString();
-
-    axios
-      .post(
+    try {
+      const response = await axios.post(
         `${API_BASE_URL}/api/chat`,
-        {
-          title: chatTitle || "New Chat",
-        },
-        {
-          withCredentials: true,
-        },
-      )
-      .then((res) => {
-        const chatData = res.data?.chat || {};
-        const title = chatData.title || chatTitle || "New Chat";
+        { title: chatTitle || "New Chat" },
+        { withCredentials: true },
+      );
 
-        const newChat = {
-          id: chatData._id || newChatId,
-          title,
-          messages: [],
-          createdAt: new Date(),
-        };
+      const chatData = response.data?.chat;
+      if (!chatData?._id) {
+        throw new Error("Failed to create a new chat");
+      }
 
-        setCurrentChatId(newChat.id);
-        setMessages([]);
-        setPreviousChats((prev) => [newChat, ...prev]);
-        setSidebarOpen(false);
-      })
-      .catch((err) => {
-        console.error("Error creating chat:", err);
+      const newChat = {
+        id: chatData._id,
+        title: chatData.title || chatTitle || "New Chat",
+        messages: [],
+        createdAt: new Date(chatData.createdAt || Date.now()),
+      };
 
-        const newChat = {
-          id: newChatId,
-          title: chatTitle || "New Chat",
-          messages: [],
-          createdAt: new Date(),
-        };
-
-        setCurrentChatId(newChatId);
-        setMessages([]);
-        setPreviousChats((prev) => [newChat, ...prev]);
-        setSidebarOpen(false);
-      });
+      setCurrentChatId(newChat.id);
+      setMessages([]);
+      setPreviousChats((prev) => [newChat, ...prev]);
+      setSidebarOpen(false);
+    } catch (err) {
+      console.error("Error creating chat:", err);
+      alert("Unable to create a new chat. Please refresh and try again.");
+    }
   };
 
   // 🔹 Select Chat
