@@ -53,44 +53,61 @@ async function generateImageInsights({ imageBase64, imageType, caption = "" }) {
     }
     cleanBase64 = cleanBase64.trim();
 
-    const prompt = `Analyze this image and describe what you see in a friendly way with bullet points:
-- Main subject/objects
-- Colors and composition  
-- Actions or activities (if any)
-- Mood/atmosphere
-- Any interesting details
-${caption ? `\nUser note: "${caption}"` : ""}`;
+    const prompt = `You are Bodhi, a helpful AI with a playful Punjabi accent. Analyze this image and respond in bullet points with fun observations:
+- Main subjects/objects
+- Colors and mood
+- Activities or context
+- Fun observation or joke about it
+${caption ? `\nUser caption: "${caption}"` : ""}
 
-    // Use gemini-1.5-flash which definitely supports vision
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              inlineData: {
-                mimeType: imageType || "image/png",
-                data: cleanBase64,
+Keep it short, fun, and use Punjabi slang like "yaar", "bhai", etc.`;
+
+    try {
+      // Try with gemini-1.5-flash first
+      const response = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                inlineData: {
+                  mimeType: imageType || "image/png",
+                  data: cleanBase64,
+                },
               },
-            },
-            {
-              text: prompt,
-            },
-          ],
-        },
-      ],
-    });
+              {
+                text: prompt,
+              },
+            ],
+          },
+        ],
+      });
 
-    if (!response?.text) {
-      throw new Error("Empty response from Gemini");
+      if (response?.text) {
+        return response.text;
+      }
+    } catch (visionErr) {
+      console.log(
+        "[AI_SERVICE] Vision model failed, trying text-based approach...",
+      );
     }
 
-    return response.text;
+    // Fallback: Generate insight based on filename/context
+    const filename = caption || "image";
+    const fallbackResponse = `🎨 Haan bhai, tera image upload ho gaya "${filename}"! 
+
+Bodhi ke liye visual analysis abhi thoda technical issue hai, par image save ho gaya database mein. 
+- File: ${filename}
+- Type: ${imageType || "image"}
+${caption ? `- Caption: "${caption}"` : ""}
+
+Absorb kar, malum chal jayega! 😊 Agar text-based help chahiye toh pooch le!`;
+
+    return fallbackResponse;
   } catch (err) {
     console.error("[AI_SERVICE] Image analysis error:", err.message);
-    // Return a friendly fallback message instead of crashing
-    return `🎨 Bodhi ke liye image analysis abhi available nahi hai, yaar! Pehle text se baatein kar, phir dekhenge. 😊`;
+    return `🎨 Oye haan, image upload ho gaya! Par analysis thoda stuck hai abhi. Chill, Bodhi shudhaar lega! 😄`;
   }
 }
 
