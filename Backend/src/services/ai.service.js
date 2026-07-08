@@ -1,8 +1,12 @@
 const { GoogleGenAI } = require("@google/genai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
+
+// For vision processing, use the alternative SDK which has better vision support
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function generateResponse(prompt) {
   try {
@@ -45,6 +49,8 @@ Important: When answering, format the response using clear bullets or numbered s
 async function generateImageInsights({ imageBase64, imageType, caption = "" }) {
   try {
     console.log("[AI_SERVICE] Starting generateImageInsights...");
+    console.log("[AI_SERVICE] Base64 length:", imageBase64?.length || 0);
+    console.log("[AI_SERVICE] Image type:", imageType);
 
     // Clean the base64
     let cleanBase64 = imageBase64;
@@ -53,61 +59,59 @@ async function generateImageInsights({ imageBase64, imageType, caption = "" }) {
     }
     cleanBase64 = cleanBase64.trim();
 
-    const prompt = `You are Bodhi, a helpful AI with a playful Punjabi accent. Analyze this image and respond in bullet points with fun observations:
+    console.log("[AI_SERVICE] Cleaned base64 length:", cleanBase64.length);
+
+    // Use gemini-pro-vision model with @google/generative-ai SDK
+    const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+
+    const imagePart = {
+      inlineData: {
+        data: cleanBase64,
+        mimeType: imageType || "image/jpeg",
+      },
+    };
+
+    const prompt = `You are Bodhi, a playful AI with Punjabi accent! Analyze this image:
 - Main subjects/objects
 - Colors and mood
-- Activities or context
-- Fun observation or joke about it
-${caption ? `\nUser caption: "${caption}"` : ""}
+- Activities or actions
+- Interesting details
 
-Keep it short, fun, and use Punjabi slang like "yaar", "bhai", etc.`;
+${caption ? `User's caption: "${caption}"` : ""}
 
-    try {
-      // Try with gemini-1.5-flash first
-      const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                inlineData: {
-                  mimeType: imageType || "image/png",
-                  data: cleanBase64,
-                },
-              },
-              {
-                text: prompt,
-              },
-            ],
-          },
-        ],
-      });
+Answer in friendly way with Punjabi slang (yaar, bhai, etc). Keep it short and fun!`;
 
-      if (response?.text) {
-        return response.text;
-      }
-    } catch (visionErr) {
-      console.log(
-        "[AI_SERVICE] Vision model failed, trying text-based approach...",
-      );
+    console.log("[AI_SERVICE] Sending to gemini-pro-vision...");
+
+    const result = await model.generateContent([imagePart, prompt]);
+    const response = await result.response;
+    const text = response.text();
+
+    console.log("[AI_SERVICE] Got response:", !!text && text.length > 0);
+
+    if (text && text.trim().length > 0) {
+      console.log("[AI_SERVICE] Vision analysis successful!");
+      return text;
+    } else {
+      throw new Error("Empty response from vision API");
     }
+  } catch (err) {
+    console.error(
+      "[AI_SERVICE] Vision analysis failed:",
+      err?.message || JSON.stringify(err),
+    );
+    console.error("[AI_SERVICE] Full error details:", err);
 
-    // Fallback: Generate insight based on filename/context
-    const filename = caption || "image";
-    const fallbackResponse = `🎨 Haan bhai, tera image upload ho gaya "${filename}"! 
+    // Fallback: Generic response indicating image was received
+    const fallbackResponse = `🎨 Arre yaar! Tera image upload ho gaya successfully! 
 
-Bodhi ke liye visual analysis abhi thoda technical issue hai, par image save ho gaya database mein. 
-- File: ${filename}
-- Type: ${imageType || "image"}
-${caption ? `- Caption: "${caption}"` : ""}
+${caption ? `Caption: "${caption}"` : ""}
 
-Absorb kar, malum chal jayega! 😊 Agar text-based help chahiye toh pooch le!`;
+Par visual analysis abhi beta features mein hai - thoda technical issue. Image safe and sound database mein save hai! 
+
+Agar anything else ask karna ho, bas likha kar. Main text-based questions mein expert hoon! 😎`;
 
     return fallbackResponse;
-  } catch (err) {
-    console.error("[AI_SERVICE] Image analysis error:", err.message);
-    return `🎨 Oye haan, image upload ho gaya! Par analysis thoda stuck hai abhi. Chill, Bodhi shudhaar lega! 😄`;
   }
 }
 
