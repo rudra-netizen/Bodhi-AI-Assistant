@@ -66,58 +66,57 @@ async function generateImageInsights({
 
     console.log("[AI_SERVICE] Cleaned base64 length:", cleanBase64.length);
 
-    // Use Gemini 1.5 Pro - proven vision model
-    console.log("[AI_SERVICE] Using Gemini 1.5 Pro for vision analysis...");
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-
-    // Build proper request with vision content
-    const imageData = {
-      inlineData: {
-        data: cleanBase64,
-        mimeType: imageType || "image/jpeg",
-      },
-    };
-
-    const prompt = `You are Bodhi, a playful AI assistant with a fun Punjabi accent! 
-
-Analyze this image carefully and describe:
-1. Main subjects/objects in the image
-2. Colors and overall mood/atmosphere
-3. Any activities or actions happening
-4. Interesting details or context
-
-${caption ? `Additional context from user: "${caption}"` : ""}
-
-Please respond in a friendly and engaging way, using Punjabi slang like "yaar", "bhai", "haan", etc. Keep it short and fun - 3-4 sentences max!`;
-
-    console.log("[AI_SERVICE] Sending image to Gemini 1.5 Pro...");
+    // Use the SAME SDK that works for text - ai.models.generateContent
+    console.log("[AI_SERVICE] Using gemini-2.5-flash for vision...");
     
-    const result = await model.generateContent([imageData, prompt]);
-    const responseText = result.response.text();
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              inlineData: {
+                mimeType: imageType || "image/jpeg",
+                data: cleanBase64,
+              },
+            },
+            {
+              text: `You are Bodhi, a playful AI with Punjabi accent! Analyze this image and describe:
+- Main subjects/objects in the image
+- Colors and overall mood
+- Any activities or actions happening
+- Interesting details
 
-    console.log("[AI_SERVICE] Response received, length:", responseText?.length);
+${caption ? `User's caption: "${caption}"` : ""}
+
+Answer in a friendly, fun way with Punjabi slang like "yaar", "bhai", etc. Keep response short and engaging!`,
+            },
+          ],
+        },
+      ],
+    });
+
+    const responseText = response?.text;
+    console.log("[AI_SERVICE] Response length:", responseText?.length);
 
     if (responseText && responseText.trim().length > 0) {
       console.log("[AI_SERVICE] ✅ Vision analysis SUCCESSFUL!");
       return responseText;
     } else {
-      throw new Error("Empty response from Gemini vision API");
+      throw new Error("Empty response from Gemini");
     }
   } catch (err) {
-    console.error(
-      "[AI_SERVICE] 🔴 Vision analysis failed:",
-      err?.message
-    );
-    console.error("[AI_SERVICE] Error details:", err?.status, err?.code);
+    console.error("[AI_SERVICE] Vision failed:", err?.message);
+    console.error("[AI_SERVICE] Error:", err);
 
-    // Fallback: Generic response indicating image was received
     const fallbackResponse = `🎨 Arre yaar! Tera image upload ho gaya successfully! 
 
-${caption ? `Caption: "${caption}"` : "File: " + (imageType || "image")}
+${caption ? `Caption: "${caption}"` : ""}
 
-Par Bodhi ka vision processor abhi thoda busy hai. Don't worry, tera image properly save ho gaya database mein! 
+Par visual analysis abhi thoda issue hai. Don't worry, tera image properly save hai database mein! 
 
-Agar tujhe detailed analysis chahiye, toh describe kar de text mein - Bodhi text-based questions mein expert hai! 😎`;
+Agar detailed analysis chahiye, describe kar de text mein - Bodhi expert hai! 😎`;
 
     return fallbackResponse;
   }
