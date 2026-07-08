@@ -47,11 +47,6 @@ Important: When answering, format the response using clear bullets or numbered s
 }
 
 async function generateImageInsights({ imageBase64, imageType, caption = "" }) {
-async function generateImageInsights({
-  imageBase64,
-  imageType,
-  caption = "",
-}) {
   try {
     console.log("[AI_SERVICE] Starting generateImageInsights...");
     console.log("[AI_SERVICE] Base64 length:", imageBase64?.length || 0);
@@ -68,7 +63,7 @@ async function generateImageInsights({
 
     // Use the SAME SDK that works for text - ai.models.generateContent
     console.log("[AI_SERVICE] Using gemini-2.5-flash for vision...");
-    
+
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [
