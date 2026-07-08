@@ -66,9 +66,11 @@ async function generateImageInsights({
 
     console.log("[AI_SERVICE] Cleaned base64 length:", cleanBase64.length);
 
-    console.log("[AI_SERVICE] Using Gemini 2.0 Pro for vision analysis...");
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-pro" });
+    // Use Gemini 1.5 Pro - proven vision model
+    console.log("[AI_SERVICE] Using Gemini 1.5 Pro for vision analysis...");
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
+    // Build proper request with vision content
     const imageData = {
       inlineData: {
         data: cleanBase64,
@@ -76,43 +78,46 @@ async function generateImageInsights({
       },
     };
 
-    const textData = `You are Bodhi, a playful AI with Punjabi accent! Analyze this image and describe:
-- Main subjects/objects in the image
-- Colors and overall mood
-- Any activities or actions happening
-- Interesting details
+    const prompt = `You are Bodhi, a playful AI assistant with a fun Punjabi accent! 
 
-${caption ? `User's caption: "${caption}"` : ""}
+Analyze this image carefully and describe:
+1. Main subjects/objects in the image
+2. Colors and overall mood/atmosphere
+3. Any activities or actions happening
+4. Interesting details or context
 
-Answer in a friendly, fun way with Punjabi slang like "yaar", "bhai", etc. Keep response short and engaging!`;
+${caption ? `Additional context from user: "${caption}"` : ""}
 
-    console.log("[AI_SERVICE] Sending to gemini-2.0-pro...");
-    const result = await model.generateContent([imageData, textData]);
+Please respond in a friendly and engaging way, using Punjabi slang like "yaar", "bhai", "haan", etc. Keep it short and fun - 3-4 sentences max!`;
+
+    console.log("[AI_SERVICE] Sending image to Gemini 1.5 Pro...");
+    
+    const result = await model.generateContent([imageData, prompt]);
     const responseText = result.response.text();
 
-    console.log("[AI_SERVICE] Response length:", responseText?.length);
+    console.log("[AI_SERVICE] Response received, length:", responseText?.length);
 
     if (responseText && responseText.trim().length > 0) {
       console.log("[AI_SERVICE] ✅ Vision analysis SUCCESSFUL!");
       return responseText;
     } else {
-      throw new Error("Empty response from vision API");
+      throw new Error("Empty response from Gemini vision API");
     }
   } catch (err) {
     console.error(
-      "[AI_SERVICE] Vision analysis failed:",
-      err?.message || JSON.stringify(err),
+      "[AI_SERVICE] 🔴 Vision analysis failed:",
+      err?.message
     );
-    console.error("[AI_SERVICE] Full error details:", err);
+    console.error("[AI_SERVICE] Error details:", err?.status, err?.code);
 
     // Fallback: Generic response indicating image was received
     const fallbackResponse = `🎨 Arre yaar! Tera image upload ho gaya successfully! 
 
-${caption ? `Caption: "${caption}"` : ""}
+${caption ? `Caption: "${caption}"` : "File: " + (imageType || "image")}
 
-Par visual analysis abhi beta features mein hai - thoda technical issue. Image safe and sound database mein save hai! 
+Par Bodhi ka vision processor abhi thoda busy hai. Don't worry, tera image properly save ho gaya database mein! 
 
-Agar anything else ask karna ho, bas likha kar. Main text-based questions mein expert hoon! 😎`;
+Agar tujhe detailed analysis chahiye, toh describe kar de text mein - Bodhi text-based questions mein expert hai! 😎`;
 
     return fallbackResponse;
   }
