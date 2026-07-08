@@ -63,6 +63,9 @@ export default function Register() {
       );
 
       if (response.status === 201) {
+        if (response.data?.token) {
+          localStorage.setItem("authToken", response.data.token);
+        }
         alert("Account created successfully! Please login.");
         navigate("/login");
       }

@@ -31,6 +31,9 @@ export default function Login() {
       );
 
       if (response.status === 200) {
+        if (response.data?.token) {
+          localStorage.setItem("authToken", response.data.token);
+        }
         navigate("/home");
       }
     } catch (error) {

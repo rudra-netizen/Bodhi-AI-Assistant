@@ -9,6 +9,11 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || API_BASE_URL;
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("authToken");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 const Home = () => {
   const [messages, setMessages] = useState([]);
   const [userInput, setUserInput] = useState("");
@@ -97,6 +102,7 @@ const Home = () => {
       try {
         const response = await axios.get(`${API_BASE_URL}/api/chat`, {
           withCredentials: true,
+          headers: getAuthHeaders(),
         });
 
         if (response.data.chats && response.data.chats.length > 0) {
@@ -210,6 +216,7 @@ const Home = () => {
         },
         {
           withCredentials: true,
+          headers: getAuthHeaders(),
         },
       );
 
@@ -249,7 +256,7 @@ const Home = () => {
       const response = await axios.post(
         `${API_BASE_URL}/api/chat`,
         { title: chatTitle || "New Chat" },
-        { withCredentials: true },
+        { withCredentials: true, headers: getAuthHeaders() },
       );
 
       const chatData = response.data?.chat;
@@ -287,6 +294,7 @@ const Home = () => {
         `${API_BASE_URL}/api/chat/${chatId}/messages`,
         {
           withCredentials: true,
+          headers: getAuthHeaders(),
         },
       );
 
@@ -313,6 +321,7 @@ const Home = () => {
       /* Delete chat from backend */
       await axios.delete(`${API_BASE_URL}/api/chat/${chatId}`, {
         withCredentials: true,
+        headers: getAuthHeaders(),
       });
 
       /* Remove from frontend state */

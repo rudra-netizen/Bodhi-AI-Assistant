@@ -6,81 +6,114 @@ const { OAuth2Client } = require("google-auth-library");
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 async function registerUser(req, res) {
-  const {
-    fullname: { firstname, lastname },
-    email,
-    password,
-  } = req.body;
-  const isUserAlreadyExists = await userModel.findOne({
-    email,
-  });
+  try {
+    const { fullname = {}, email, password } = req.body;
+    const firstname = fullname.firstname || req.body.firstname || "";
+    const lastname = fullname.lastname || req.body.lastname || "";
+    const normalizedEmail = email?.toLowerCase().trim();
 
-  if (isUserAlreadyExists) {
-    return res.status(400).json({
-      message: "User Already Exists",
+    if (!firstname || !lastname || !normalizedEmail || !password) {
+      return res.status(400).json({
+        message: "Firstname, lastname, email, and password are required",
+      });
+    }
+
+    const isUserAlreadyExists = await userModel.findOne({
+      email: normalizedEmail,
+    });
+
+    if (isUserAlreadyExists) {
+      return res.status(400).json({
+        message: "User already exists",
+      });
+    }
+
+    const hashpassword = await bcrypt.hash(password, 10);
+    const user = await userModel.create({
+      fullname: {
+        firstname,
+        lastname,
+      },
+      email: normalizedEmail,
+      password: hashpassword,
+      provider: "local",
+    });
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY);
+    const cookieOptions = {
+      httpOnly: true,
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 24 * 60 * 60 * 1000,
+    };
+    res.cookie("token", token, cookieOptions);
+
+    return res.status(201).json({
+      message: "User registered successfully",
+      token,
+      user: { _id: user._id, email: user.email, fullname: user.fullname },
+    });
+  } catch (error) {
+    console.error("Register Error:", error);
+    return res.status(500).json({
+      message: "Registration failed",
+      error: error.message,
     });
   }
-  const hashpassword = await bcrypt.hash(password, 10);
-  const user = await userModel.create({
-    fullname: {
-      firstname,
-      lastname,
-    },
-    email: email,
-    password: hashpassword,
-    provider: "local",
-  });
-
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY);
-  const cookieOptions = {
-    httpOnly: true,
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 24 * 60 * 60 * 1000,
-  };
-  res.cookie("token", token, cookieOptions);
-
-  return res.status(201).json({
-    message: "User Registered Successfully",
-    user: { _id: user._id, email: user.email, fullname: user.fullname },
-  });
 }
 
 async function loginUser(req, res) {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
+    const normalizedEmail = email?.toLowerCase().trim();
 
-  const user = await userModel.findOne({ email });
-  if (!user) {
-    return res.status(400).json({
-      message: "Invalid email or password",
+    if (!normalizedEmail || !password) {
+      return res.status(400).json({
+        message: "Email and password are required",
+      });
+    }
+
+    const user = await userModel.findOne({ email: normalizedEmail });
+    if (!user) {
+      return res.status(400).json({
+        message: "Invalid email or password",
+      });
+    }
+
+    if (user.provider === "google" && !user.password) {
+      return res.status(400).json({
+        message: "Please sign in with Google",
+      });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password || "");
+    if (!isPasswordValid) {
+      return res.status(400).json({
+        message: "Invalid password",
+      });
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY);
+    const cookieOptions = {
+      httpOnly: true,
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 24 * 60 * 60 * 1000,
+    };
+    res.cookie("token", token, cookieOptions);
+
+    return res.status(200).json({
+      message: "User logged in successfully",
+      token,
+      user: { user: user._id, email: user.email, fullname: user.fullname },
+    });
+  } catch (error) {
+    console.error("Login Error:", error);
+    return res.status(500).json({
+      message: "Login failed",
+      error: error.message,
     });
   }
-
-  if (user.provider === "google" && !user.password) {
-    return res.status(400).json({
-      message: "Please sign in with Google",
-    });
-  }
-
-  const isPasswordValid = await bcrypt.compare(password, user.password);
-  if (!isPasswordValid) {
-    return res.status(400).json({
-      message: "invalid password",
-    });
-  }
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY);
-  const cookieOptions = {
-    httpOnly: true,
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 24 * 60 * 60 * 1000,
-  };
-  res.cookie("token", token, cookieOptions);
-
-  res.status(200).json({
-    message: "User Logged In SuccessFully",
-    user: { user: user._id, email: user.email, fullname: user.fullname },
-  });
 }
 
 // 🔐 Google OAuth - Verify Token and Handle Registration/Login
@@ -149,6 +182,7 @@ async function googleAuth(req, res) {
 
       return res.status(201).json({
         message: "Account created successfully with Google",
+        token: jwtToken,
         user: {
           _id: user._id,
           email: user.email,
@@ -196,6 +230,7 @@ async function googleAuth(req, res) {
 
       return res.status(200).json({
         message: "Logged in successfully",
+        token: jwtToken,
         user: {
           _id: user._id,
           email: user.email,
