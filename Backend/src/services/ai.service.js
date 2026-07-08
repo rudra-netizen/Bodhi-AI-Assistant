@@ -45,32 +45,25 @@ Important: When answering, format the response using clear bullets or numbered s
 async function generateImageInsights({ imageBase64, imageType, caption = "" }) {
   try {
     console.log("[AI_SERVICE] Starting generateImageInsights...");
-    console.log("[AI_SERVICE] Image type:", imageType);
-    console.log("[AI_SERVICE] Has caption:", !!caption);
-    console.time("[AI_SERVICE] Gemini image analysis call");
 
-    // Ensure base64 is clean
+    // Clean the base64
     let cleanBase64 = imageBase64;
     if (imageBase64.includes(",")) {
       cleanBase64 = imageBase64.split(",")[1];
     }
     cleanBase64 = cleanBase64.trim();
 
-    console.log("[AI_SERVICE] Base64 length:", cleanBase64.length);
+    const prompt = `Analyze this image and describe what you see in a friendly way with bullet points:
+- Main subject/objects
+- Colors and composition  
+- Actions or activities (if any)
+- Mood/atmosphere
+- Any interesting details
+${caption ? `\nUser note: "${caption}"` : ""}`;
 
-    const prompt = `Analyze this image and describe what you see. Include:
-- What's in the image (objects, people, scenes)
-- Colors and composition
-- Any text or important details
-- Overall mood or purpose
-${caption ? `\nUser caption: "${caption}"` : ""}
-
-Respond in a friendly, helpful manner with bullet points.`;
-
-    console.log("[AI_SERVICE] Sending request to Gemini...");
-
+    // Use gemini-1.5-flash which definitely supports vision
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-1.5-flash",
       contents: [
         {
           role: "user",
@@ -87,32 +80,17 @@ Respond in a friendly, helpful manner with bullet points.`;
           ],
         },
       ],
-      config: {
-        temperature: 0.7,
-      },
-    });
-
-    console.timeEnd("[AI_SERVICE] Gemini image analysis call");
-    console.log("[AI_SERVICE] Response object:", {
-      hasText: !!response?.text,
-      textLength: response?.text?.length || 0,
     });
 
     if (!response?.text) {
-      console.error(
-        "[AI_SERVICE] Empty response from Gemini. Full response:",
-        JSON.stringify(response, null, 2),
-      );
-      throw new Error("Gemini returned empty response for image analysis");
+      throw new Error("Empty response from Gemini");
     }
 
     return response.text;
   } catch (err) {
-    console.error("[AI_SERVICE] Error in generateImageInsights:");
-    console.error("[AI_SERVICE] Error message:", err.message);
-    console.error("[AI_SERVICE] Error code:", err.code);
-    console.error("[AI_SERVICE] Full error:", JSON.stringify(err, null, 2));
-    throw err;
+    console.error("[AI_SERVICE] Image analysis error:", err.message);
+    // Return a friendly fallback message instead of crashing
+    return `🎨 Bodhi ke liye image analysis abhi available nahi hai, yaar! Pehle text se baatein kar, phir dekhenge. 😊`;
   }
 }
 
