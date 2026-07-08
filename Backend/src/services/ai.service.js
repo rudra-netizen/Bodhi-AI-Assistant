@@ -1,12 +1,18 @@
 const { GoogleGenAI } = require("@google/genai");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const Anthropic = require("@anthropic-ai/sdk");
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
-// For vision processing, use the alternative SDK which has better vision support
+// For vision processing, use Claude which has reliable vision support
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Claude for vision analysis
+const claude = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
 async function generateResponse(prompt) {
   try {
@@ -47,74 +53,115 @@ Important: When answering, format the response using clear bullets or numbered s
 }
 
 async function generateImageInsights({ imageBase64, imageType, caption = "" }) {
-  try {
-    console.log("[AI_SERVICE] Starting generateImageInsights...");
-    console.log("[AI_SERVICE] Base64 length:", imageBase64?.length || 0);
-    console.log("[AI_SERVICE] Image type:", imageType);
+  async function generateImageInsights({
+    imageBase64,
+    imageType,
+    caption = "",
+  }) {
+    try {
+      console.log("[AI_SERVICE] Starting generateImageInsights...");
+      console.log("[AI_SERVICE] Base64 length:", imageBase64?.length || 0);
+      console.log("[AI_SERVICE] Image type:", imageType);
 
-    // Clean the base64
-    let cleanBase64 = imageBase64;
-    if (imageBase64.includes(",")) {
-      cleanBase64 = imageBase64.split(",")[1];
-    }
-    cleanBase64 = cleanBase64.trim();
+      // Clean the base64
+      let cleanBase64 = imageBase64;
+      if (imageBase64.includes(",")) {
+        cleanBase64 = imageBase64.split(",")[1];
+      }
+      cleanBase64 = cleanBase64.trim();
 
-    console.log("[AI_SERVICE] Cleaned base64 length:", cleanBase64.length);
+      console.log("[AI_SERVICE] Cleaned base64 length:", cleanBase64.length);
 
-    // Use gemini-1.5-pro for vision - confirmed working model
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      // TRY CLAUDE VISION FIRST (most reliable)
+      if (process.env.ANTHROPIC_API_KEY) {
+        try {
+          console.log("[AI_SERVICE] Attempting Claude Vision...");
 
-    // Build the content array properly
-    const imageData = {
-      inlineData: {
-        data: cleanBase64,
-        mimeType: imageType || "image/jpeg",
-      },
-    };
-
-    const textData = `You are Bodhi, a playful AI with Punjabi accent! Analyze this image and describe:
-- Main subjects/objects in the image
-- Colors and overall mood
-- Any activities or actions happening
-- Interesting details or observations
+          const response = await claude.messages.create({
+            model: "claude-3-5-sonnet-20241022",
+            max_tokens: 1024,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "image",
+                    source: {
+                      type: "base64",
+                      media_type: imageType || "image/jpeg",
+                      data: cleanBase64,
+                    },
+                  },
+                  {
+                    type: "text",
+                    text: `You are Bodhi, a playful AI with Punjabi accent! Analyze this image:
+- Main subjects/objects
+- Colors and mood  
+- Activities happening
+- Interesting details
 
 ${caption ? `User's caption: "${caption}"` : ""}
 
-Answer in a friendly, fun way with Punjabi slang like "yaar", "bhai", etc. Keep response short and engaging!`;
+Answer in Punjabi accent with "yaar", "bhai", etc. Keep it SHORT and FUN! (2-3 sentences max)`,
+                  },
+                ],
+              },
+            ],
+          });
 
-    console.log(
-      "[AI_SERVICE] Sending image to gemini-1.5-pro for vision analysis...",
-    );
+          const analysisText = response.content[0].text;
+          if (analysisText && analysisText.trim().length > 0) {
+            console.log("[AI_SERVICE] ✅ Claude Vision SUCCESS!");
+            return analysisText;
+          }
+        } catch (claudeErr) {
+          console.warn("[AI_SERVICE] Claude Vision failed, trying Gemini...");
+        }
+      }
 
-    const result = await model.generateContent([imageData, textData]);
-    const responseText = result.response.text();
+      // FALLBACK TO GEMINI-1.5-FLASH
+      console.log("[AI_SERVICE] Using Gemini vision as fallback...");
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    console.log(
-      "[AI_SERVICE] Vision response received, length:",
-      responseText?.length || 0,
-    );
+      const imageData = {
+        inlineData: {
+          data: cleanBase64,
+          mimeType: imageType || "image/jpeg",
+        },
+      };
 
-    if (responseText && responseText.trim().length > 0) {
-      console.log("[AI_SERVICE] ✅ Vision analysis SUCCESSFUL!");
-      return responseText;
-    } else {
-      throw new Error("Empty response from vision model");
-    }
-  } catch (err) {
-    console.error("[AI_SERVICE] ❌ Vision analysis failed:", err?.message);
-    console.error("[AI_SERVICE] Error code:", err?.code);
-    console.error("[AI_SERVICE] Full error:", JSON.stringify(err, null, 2));
+      const textData = `You are Bodhi! Quick analysis:
+- Objects/subjects
+- Colors & mood
+- Activities
+- Details
 
-    // Fallback: Return that image was received but analysis failed
-    const fallbackResponse = `🎨 Arre yaar! Tera image successfully upload ho gaya! 
+${caption ? `Caption: "${caption}"` : ""}
+
+Punjabi accent, short & fun!`;
+
+      const result = await model.generateContent([imageData, textData]);
+      const responseText = result.response.text();
+
+      if (responseText && responseText.trim().length > 0) {
+        console.log("[AI_SERVICE] ✅ Gemini Vision SUCCESS!");
+        return responseText;
+      } else {
+        throw new Error("Empty response");
+      }
+    } catch (err) {
+      console.error("[AI_SERVICE] BOTH vision methods failed:", err?.message);
+
+      const fallbackResponse = `🎨 Arre yaar! Tera image upload ho gaya successfully! 
 
 ${caption ? `Caption: "${caption}"` : "File: " + (imageType || "image")}
 
-Par Bodhi ka vision processor abhi thoda overloaded hai - technical issue aagaya. Par tujhe reassure kar du, tera image properly save hai database mein! 
+Par Bodhi ka vision processor abhi sirf text-based analysis kar sakta hai. Image database mein save hai! 
 
 Agar detailed analysis chahiye toh describe kar de text mein, Bodhi expert hai text-based questions mein! 😎`;
 
-    return fallbackResponse;
+      return fallbackResponse;
+    }
   }
 }
 
