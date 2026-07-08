@@ -42,6 +42,67 @@ Important: When answering, format the response using clear bullets or numbered s
   }
 }
 
+async function generateImageInsights({ imageBase64, imageType, caption = "" }) {
+  try {
+    console.log("[AI_SERVICE] Starting generateImageInsights...");
+    console.time("[AI_SERVICE] Gemini image analysis call");
+
+    const sanitizedBase64 = imageBase64.replace(/^data:.*;base64,/, "").trim();
+
+    const prompt = `Analyze the uploaded image and provide a clear, structured response with meaningful insights. Include:
+- A short summary of the scene or subject
+- Visible objects, activities, or environments
+- Any likely emotional tone, purpose, or context
+- Practical observations, recommendations, or interesting details
+${caption ? `\n- Caption: "${caption}"` : ""}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-image-preview",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              type: "text",
+              text: prompt,
+            },
+            {
+              type: "image",
+              data: sanitizedBase64,
+              mime_type: imageType || "image/png",
+              resolution: "high",
+            },
+          ],
+        },
+      ],
+      config: {
+        temperature: 0.35,
+        response_modalities: ["text"],
+        systemInstruction: `You are a helpful assistant that analyzes user images. Provide concise and useful insights in bullet or numbered list form.`,
+      },
+    });
+
+    console.timeEnd("[AI_SERVICE] Gemini image analysis call");
+    console.log(
+      "[AI_SERVICE] Gemini image response received:",
+      response?.text?.substring(0, 50) || "EMPTY",
+    );
+
+    if (!response?.text) {
+      console.error(
+        "[AI_SERVICE] Invalid image response from Gemini:",
+        JSON.stringify(response),
+      );
+      throw new Error("Gemini returned empty image analysis response");
+    }
+
+    return response.text;
+  } catch (err) {
+    console.error("[AI_SERVICE] Error in generateImageInsights:", err.message);
+    throw err;
+  }
+}
+
 async function generateVector(content) {
   try {
     console.log("[AI_SERVICE] Generating vector for content...");
@@ -71,4 +132,4 @@ async function generateVector(content) {
   }
 }
 
-module.exports = { generateResponse, generateVector };
+module.exports = { generateResponse, generateImageInsights, generateVector };

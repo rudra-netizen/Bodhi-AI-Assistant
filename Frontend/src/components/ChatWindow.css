@@ -228,6 +228,27 @@
   background: var(--primary-hover);
 }
 
+.image-upload-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 18px;
+  border: 1px solid transparent;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.image-upload-label:hover {
+  background: var(--border);
+}
+
 .send-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;

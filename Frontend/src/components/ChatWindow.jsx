@@ -72,6 +72,7 @@ const ChatWindow = ({
   loading,
   onInputChange,
   onSendMessage,
+  onImageUpload,
   messagesEndRef,
 }) => {
   return (
@@ -124,6 +125,16 @@ const ChatWindow = ({
             disabled={loading}
             className="message-input"
           />
+          <label className="image-upload-label" title="Upload an image">
+            📷
+            <input
+              type="file"
+              accept="image/*"
+              onChange={onImageUpload}
+              disabled={loading}
+              hidden
+            />
+          </label>
           <button
             type="submit"
             disabled={loading || !userInput.trim()}

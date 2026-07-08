@@ -12,6 +12,7 @@ router.get(
   chatController.getChatMessages,
 ); /* Get messages for specific chat */
 router.post("/message", authMiddleware, chatController.handleMessage);
+router.post("/image", authMiddleware, chatController.handleImageUpload);
 /* DELETE route to delete a specific chat by ID */
 router.delete("/:chatId", authMiddleware, chatController.deleteChat);
 
