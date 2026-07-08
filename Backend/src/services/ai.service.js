@@ -9,7 +9,7 @@ async function generateResponse(prompt) {
     console.log("[AI_SERVICE] Starting generateResponse...");
     console.time("[AI_SERVICE] Gemini API call");
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         temperature: 0.7,
@@ -57,28 +57,26 @@ async function generateImageInsights({ imageBase64, imageType, caption = "" }) {
 ${caption ? `\n- Caption: "${caption}"` : ""}`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-image-preview",
+      model: "gemini-2.0-flash",
       contents: [
         {
           role: "user",
           parts: [
             {
-              type: "text",
-              text: prompt,
+              inlineData: {
+                mimeType: imageType || "image/png",
+                data: sanitizedBase64,
+              },
             },
             {
-              type: "image",
-              data: sanitizedBase64,
-              mime_type: imageType || "image/png",
-              resolution: "high",
+              text: prompt,
             },
           ],
         },
       ],
       config: {
         temperature: 0.35,
-        response_modalities: ["text"],
-        systemInstruction: `You are a helpful assistant that analyzes user images. Provide concise and useful insights in bullet or numbered list form.`,
+        systemInstruction: `You are a helpful assistant that analyzes user images with a playful Punjabi tone. Provide concise and useful insights in bullet or numbered list form.`,
       },
     });
 
