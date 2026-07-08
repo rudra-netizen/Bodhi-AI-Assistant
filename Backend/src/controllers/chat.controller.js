@@ -186,10 +186,19 @@ async function handleImageUpload(req, res) {
       insights: aiResponse,
     });
   } catch (error) {
-    console.error("Error handling image upload:", error);
+    console.error("[CHAT_CONTROLLER] Error handling image upload:");
+    console.error("[CHAT_CONTROLLER] Error message:", error.message);
+    console.error("[CHAT_CONTROLLER] Error code:", error.code);
+    console.error(
+      "[CHAT_CONTROLLER] Full error:",
+      JSON.stringify(error, null, 2),
+    );
+
     res.status(500).json({
       message: "Failed to analyze uploaded image",
       error: error.message,
+      details:
+        process.env.NODE_ENV === "development" ? error.toString() : undefined,
     });
   }
 }

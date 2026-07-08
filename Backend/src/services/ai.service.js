@@ -45,16 +45,29 @@ Important: When answering, format the response using clear bullets or numbered s
 async function generateImageInsights({ imageBase64, imageType, caption = "" }) {
   try {
     console.log("[AI_SERVICE] Starting generateImageInsights...");
+    console.log("[AI_SERVICE] Image type:", imageType);
+    console.log("[AI_SERVICE] Has caption:", !!caption);
     console.time("[AI_SERVICE] Gemini image analysis call");
 
-    const sanitizedBase64 = imageBase64.replace(/^data:.*;base64,/, "").trim();
+    // Ensure base64 is clean
+    let cleanBase64 = imageBase64;
+    if (imageBase64.includes(",")) {
+      cleanBase64 = imageBase64.split(",")[1];
+    }
+    cleanBase64 = cleanBase64.trim();
 
-    const prompt = `Analyze the uploaded image and provide a clear, structured response with meaningful insights. Include:
-- A short summary of the scene or subject
-- Visible objects, activities, or environments
-- Any likely emotional tone, purpose, or context
-- Practical observations, recommendations, or interesting details
-${caption ? `\n- Caption: "${caption}"` : ""}`;
+    console.log("[AI_SERVICE] Base64 length:", cleanBase64.length);
+
+    const prompt = `Analyze this image and describe what you see. Include:
+- What's in the image (objects, people, scenes)
+- Colors and composition
+- Any text or important details
+- Overall mood or purpose
+${caption ? `\nUser caption: "${caption}"` : ""}
+
+Respond in a friendly, helpful manner with bullet points.`;
+
+    console.log("[AI_SERVICE] Sending request to Gemini...");
 
     const response = await ai.models.generateContent({
       model: "gemini-2.0-flash",
@@ -65,7 +78,7 @@ ${caption ? `\n- Caption: "${caption}"` : ""}`;
             {
               inlineData: {
                 mimeType: imageType || "image/png",
-                data: sanitizedBase64,
+                data: cleanBase64,
               },
             },
             {
@@ -75,28 +88,30 @@ ${caption ? `\n- Caption: "${caption}"` : ""}`;
         },
       ],
       config: {
-        temperature: 0.35,
-        systemInstruction: `You are a helpful assistant that analyzes user images with a playful Punjabi tone. Provide concise and useful insights in bullet or numbered list form.`,
+        temperature: 0.7,
       },
     });
 
     console.timeEnd("[AI_SERVICE] Gemini image analysis call");
-    console.log(
-      "[AI_SERVICE] Gemini image response received:",
-      response?.text?.substring(0, 50) || "EMPTY",
-    );
+    console.log("[AI_SERVICE] Response object:", {
+      hasText: !!response?.text,
+      textLength: response?.text?.length || 0,
+    });
 
     if (!response?.text) {
       console.error(
-        "[AI_SERVICE] Invalid image response from Gemini:",
-        JSON.stringify(response),
+        "[AI_SERVICE] Empty response from Gemini. Full response:",
+        JSON.stringify(response, null, 2),
       );
-      throw new Error("Gemini returned empty image analysis response");
+      throw new Error("Gemini returned empty response for image analysis");
     }
 
     return response.text;
   } catch (err) {
-    console.error("[AI_SERVICE] Error in generateImageInsights:", err.message);
+    console.error("[AI_SERVICE] Error in generateImageInsights:");
+    console.error("[AI_SERVICE] Error message:", err.message);
+    console.error("[AI_SERVICE] Error code:", err.code);
+    console.error("[AI_SERVICE] Full error:", JSON.stringify(err, null, 2));
     throw err;
   }
 }
