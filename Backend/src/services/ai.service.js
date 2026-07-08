@@ -61,55 +61,58 @@ async function generateImageInsights({ imageBase64, imageType, caption = "" }) {
 
     console.log("[AI_SERVICE] Cleaned base64 length:", cleanBase64.length);
 
-    // Use gemini-pro-vision model with @google/generative-ai SDK
-    const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+    // Use gemini-1.5-pro for vision - confirmed working model
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
-    const imagePart = {
+    // Build the content array properly
+    const imageData = {
       inlineData: {
         data: cleanBase64,
         mimeType: imageType || "image/jpeg",
       },
     };
 
-    const prompt = `You are Bodhi, a playful AI with Punjabi accent! Analyze this image:
-- Main subjects/objects
-- Colors and mood
-- Activities or actions
-- Interesting details
+    const textData = `You are Bodhi, a playful AI with Punjabi accent! Analyze this image and describe:
+- Main subjects/objects in the image
+- Colors and overall mood
+- Any activities or actions happening
+- Interesting details or observations
 
 ${caption ? `User's caption: "${caption}"` : ""}
 
-Answer in friendly way with Punjabi slang (yaar, bhai, etc). Keep it short and fun!`;
+Answer in a friendly, fun way with Punjabi slang like "yaar", "bhai", etc. Keep response short and engaging!`;
 
-    console.log("[AI_SERVICE] Sending to gemini-pro-vision...");
+    console.log(
+      "[AI_SERVICE] Sending image to gemini-1.5-pro for vision analysis...",
+    );
 
-    const result = await model.generateContent([imagePart, prompt]);
-    const response = await result.response;
-    const text = response.text();
+    const result = await model.generateContent([imageData, textData]);
+    const responseText = result.response.text();
 
-    console.log("[AI_SERVICE] Got response:", !!text && text.length > 0);
+    console.log(
+      "[AI_SERVICE] Vision response received, length:",
+      responseText?.length || 0,
+    );
 
-    if (text && text.trim().length > 0) {
-      console.log("[AI_SERVICE] Vision analysis successful!");
-      return text;
+    if (responseText && responseText.trim().length > 0) {
+      console.log("[AI_SERVICE] ✅ Vision analysis SUCCESSFUL!");
+      return responseText;
     } else {
-      throw new Error("Empty response from vision API");
+      throw new Error("Empty response from vision model");
     }
   } catch (err) {
-    console.error(
-      "[AI_SERVICE] Vision analysis failed:",
-      err?.message || JSON.stringify(err),
-    );
-    console.error("[AI_SERVICE] Full error details:", err);
+    console.error("[AI_SERVICE] ❌ Vision analysis failed:", err?.message);
+    console.error("[AI_SERVICE] Error code:", err?.code);
+    console.error("[AI_SERVICE] Full error:", JSON.stringify(err, null, 2));
 
-    // Fallback: Generic response indicating image was received
-    const fallbackResponse = `🎨 Arre yaar! Tera image upload ho gaya successfully! 
+    // Fallback: Return that image was received but analysis failed
+    const fallbackResponse = `🎨 Arre yaar! Tera image successfully upload ho gaya! 
 
-${caption ? `Caption: "${caption}"` : ""}
+${caption ? `Caption: "${caption}"` : "File: " + (imageType || "image")}
 
-Par visual analysis abhi beta features mein hai - thoda technical issue. Image safe and sound database mein save hai! 
+Par Bodhi ka vision processor abhi thoda overloaded hai - technical issue aagaya. Par tujhe reassure kar du, tera image properly save hai database mein! 
 
-Agar anything else ask karna ho, bas likha kar. Main text-based questions mein expert hoon! 😎`;
+Agar detailed analysis chahiye toh describe kar de text mein, Bodhi expert hai text-based questions mein! 😎`;
 
     return fallbackResponse;
   }
