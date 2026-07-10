@@ -97,9 +97,14 @@ const ChatWindow = ({
                 {message &&
                 message.text &&
                 typeof message.text === "string" &&
-                message.text.startsWith("data:image") ? (
+                (/^data:image\/.+;base64,/.test(message.text) ||
+                  /^[A-Za-z0-9+/=\n\r]+$/.test(message.text)) ? (
                   <img
-                    src={message.text}
+                    src={
+                      message.text.startsWith("data:image")
+                        ? message.text
+                        : `data:image/png;base64,${message.text}`
+                    }
                     alt="generated"
                     className="generated-image"
                     style={{ maxWidth: "320px", borderRadius: "8px" }}

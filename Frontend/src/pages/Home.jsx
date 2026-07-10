@@ -267,7 +267,14 @@ const Home = () => {
       );
 
       const images = response.data.images || [];
-      const aiMessages = images.map((img) => ({
+      const normalizedImages = images.map((img) => {
+        let imageText = String(img || "").trim();
+        if (imageText && !imageText.startsWith("data:image")) {
+          imageText = `data:image/png;base64,${imageText}`;
+        }
+        return imageText;
+      });
+      const aiMessages = normalizedImages.map((img) => ({
         id: Date.now() + Math.random(),
         text: img,
         sender: "ai",

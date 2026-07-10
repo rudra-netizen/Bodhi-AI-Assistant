@@ -294,4 +294,5 @@ module.exports = {
   deleteChat,
   getChatMessages,
   handleImageUpload,
+  handleGenerateImage,
 };
