@@ -73,6 +73,7 @@ const ChatWindow = ({
   onInputChange,
   onSendMessage,
   onImageUpload,
+  onGenerateImage,
   messagesEndRef,
 }) => {
   return (

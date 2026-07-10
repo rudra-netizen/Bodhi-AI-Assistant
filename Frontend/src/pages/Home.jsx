@@ -477,6 +477,7 @@ const Home = () => {
         onInputChange={(e) => setUserInput(e.target.value)}
         onSendMessage={handleSendMessage}
         onImageUpload={handleImageUpload}
+        onGenerateImage={handleGenerateImage}
         messagesEndRef={messagesEndRef}
       />
     </div>

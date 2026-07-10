@@ -321,10 +321,19 @@ async function generateVector(content) {
 
 // Text -> Image generation using Google Generative REST endpoint
 async function generateGeminiImages(options = {}) {
-  const { prompt, size = "1024x1024", count = 1, model = "imagen-3-fast" } =
-    options;
+  const {
+    prompt,
+    size = "1024x1024",
+    count = 1,
+    model = "imagen-3-fast",
+  } = options;
 
-  console.log("[AI_SERVICE] generateGeminiImages called", { prompt, size, count, model });
+  console.log("[AI_SERVICE] generateGeminiImages called", {
+    prompt,
+    size,
+    count,
+    model,
+  });
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY not set in environment");
@@ -337,16 +346,21 @@ async function generateGeminiImages(options = {}) {
     if (typeof globalThis.fetch === "function") fetchFn = globalThis.fetch;
   }
 
-  if (!fetchFn) throw new Error("No fetch implementation available (install node-fetch)");
+  if (!fetchFn)
+    throw new Error("No fetch implementation available (install node-fetch)");
 
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateImages`;
 
+  const width = parseInt(size.split("x")[0], 10) || 1024;
+  const height = parseInt(size.split("x")[1], 10) || 1024;
+
   const body = {
     prompt: { text: String(prompt || "") },
-    image: { // keep optional sizing hints for future use
+    image: {
       mimeType: "image/png",
-      width: parseInt(size.split("x")[0]) || 1024,
-      height: parseInt(size.split("x")[1]) || 1024,
+      size,
+      width,
+      height,
     },
     candidateCount: count,
   };
@@ -359,7 +373,11 @@ async function generateGeminiImages(options = {}) {
 
   const text = await res.text();
   if (!res.ok) {
-    console.error("[AI_SERVICE] Image API error:", res.status, text.substring(0, 400));
+    console.error(
+      "[AI_SERVICE] Image API error:",
+      res.status,
+      text.substring(0, 400),
+    );
     throw new Error(`Image API error: ${res.status}`);
   }
 
@@ -376,7 +394,7 @@ async function generateGeminiImages(options = {}) {
     for (const c of data.candidates) {
       if (c?.image?.imageBytes) {
         images.push(`data:image/png;base64,${c.image.imageBytes}`);
-      } else if (c?.image)?.b64) {
+      } else if (c?.image?.b64) {
         images.push(`data:image/png;base64,${c.image.b64}`);
       }
     }
@@ -385,12 +403,16 @@ async function generateGeminiImages(options = {}) {
   // Fallback older shape
   if (data?.images && Array.isArray(data.images)) {
     for (const img of data.images) {
-      if (img.bytesBase64) images.push(`data:image/png;base64,${img.bytesBase64}`);
+      if (img.bytesBase64)
+        images.push(`data:image/png;base64,${img.bytesBase64}`);
     }
   }
 
   if (images.length === 0) {
-    console.warn("[AI_SERVICE] No images returned from API", JSON.stringify(data).substring(0, 400));
+    console.warn(
+      "[AI_SERVICE] No images returned from API",
+      JSON.stringify(data).substring(0, 400),
+    );
     throw new Error("No images returned from image API");
   }
 
