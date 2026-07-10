@@ -331,18 +331,24 @@ module.exports = {
 
 // Implementation: text -> image generation for Gemini/GenAI
 async function generateGeminiImages(options = {}) {
-  const { prompt, size = "1024x1024", count = 1 } = options;
+  const {
+    prompt,
+    size = "1024x1024",
+    count = 1,
+    model = "gemini-2.5-flash",
+  } = options;
   console.log("[AI_SERVICE] generateGeminiImages called", {
     prompt,
     size,
     count,
+    model,
   });
 
   try {
     // Try the client image helper if present
     if (ai.images && typeof ai.images.generate === "function") {
       const resp = await ai.images.generate({
-        model: "image-bison-001",
+        model: model || "image-bison-001",
         prompt,
         size,
         count,
@@ -379,7 +385,7 @@ async function generateGeminiImages(options = {}) {
     // Try alternate surface
     if (ai.models && typeof ai.models.generateImages === "function") {
       const resp = await ai.models.generateImages({
-        model: "image-bison-001",
+        model: model || "image-bison-001",
         prompt,
         size,
         count,
