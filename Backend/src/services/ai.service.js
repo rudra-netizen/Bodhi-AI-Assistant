@@ -1,14 +1,8 @@
 const { GoogleGenAI } = require("@google/genai");
-const { OpenAI } = require("openai");
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
-
-let openai = null;
-if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-}
 
 async function generateResponse(prompt) {
   try {
@@ -54,10 +48,6 @@ async function generateImageInsights({ imageBase64, imageType, caption = "" }) {
     console.log("[AI_SERVICE] Base64 length:", imageBase64?.length || 0);
     console.log("[AI_SERVICE] Image type:", imageType);
 
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY is required for image analysis");
-    }
-
     // Clean the base64
     let cleanBase64 = imageBase64;
     if (imageBase64.includes(",")) {
@@ -67,62 +57,54 @@ async function generateImageInsights({ imageBase64, imageType, caption = "" }) {
 
     console.log("[AI_SERVICE] Cleaned base64 length:", cleanBase64.length);
 
-    const imageUrl = `data:${imageType || "image/jpeg"};base64,${cleanBase64}`;
-    const prompt = `You are Bodhi, a playful AI with Punjabi accent! Analyze this image and describe:
-- Main subjects/objects in the image
-- Colors and overall mood
-- Any activities or actions happening
-- Interesting details
+    const prompt = `You are Bodhi, a playful AI with Punjabi accent! Analyze this image and describe:\n- Main subjects/objects in the image\n- Colors and overall mood\n- Any activities or actions happening\n- Interesting details\n\n${caption ? `User's caption: "${caption}"` : ""}\n\nAnswer in a friendly, fun way with Punjabi slang like "yaar", "bhai", etc. Keep it short and engaging.`;
 
-${caption ? `User's caption: "${caption}"` : ""}
-
-Please reply in a friendly way with Punjabi slang like "yaar", "bhai", etc. Keep the answer short and engaging.`;
-
-    console.log("[AI_SERVICE] Sending image to OpenAI for analysis...");
-    const response = await openai.responses.create({
-      model: "gpt-4.1-mini",
-      input: [
+    console.log(
+      "[AI_SERVICE] Sending image to Gemini 2.5 flash for analysis...",
+    );
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
         {
           role: "user",
-          content: [
-            { type: "input_text", text: prompt },
-            { type: "input_image", image_url: imageUrl },
+          parts: [
+            {
+              inlineData: {
+                mimeType: imageType || "image/jpeg",
+                data: cleanBase64,
+              },
+            },
+            {
+              text: prompt,
+            },
           ],
         },
       ],
-      max_output_tokens: 500,
+      config: {
+        temperature: 0.7,
+      },
     });
 
-    const responseText =
-      response.output_text ||
-      (Array.isArray(response.output)
-        ? response.output
-            .map((item) => {
-              if (item.type === "message") {
-                return item.content.map((part) => part.text || "").join("");
-              }
-              return "";
-            })
-            .join(" ")
-        : "");
-
-    console.log("[AI_SERVICE] OpenAI response length:", responseText?.length);
+    const responseText = response?.text;
+    console.log(
+      "[AI_SERVICE] Gemini image response length:",
+      responseText?.length,
+    );
 
     if (responseText && responseText.trim().length > 0) {
-      console.log("[AI_SERVICE] ✅ Image analysis SUCCESSFUL!");
+      console.log("[AI_SERVICE] ✅ Gemini image analysis SUCCESSFUL!");
       return responseText;
     }
 
-    throw new Error("Empty response from OpenAI image analysis");
+    throw new Error("Empty response from Gemini image analysis");
   } catch (err) {
-    console.error("[AI_SERVICE] Image analysis failed:", err?.message || err);
+    console.error(
+      "[AI_SERVICE] Gemini image analysis failed:",
+      err?.message || err,
+    );
     console.error("[AI_SERVICE] Full error:", err);
 
-    const fallbackResponse = `🎨 Arre yaar! Tera image upload ho gaya successfully! 
-
-${caption ? `Caption: "${caption}"` : ""}
-
-Par visual analysis abhi thoda issue hai. Image database mein save ho gaya hai. Agar detailed analysis chahiye, describe kar de text mein, Bodhi best hai text-based help mein! 😎`;
+    const fallbackResponse = `🎨 Arre yaar! Tera image upload ho gaya successfully! \n\n${caption ? `Caption: "${caption}"` : ""}\n\nPar visual analysis abhi thoda issue hai. Image safe hai and database mein save ho gaya hai. Agar detailed analysis chahiye, text se pooch le, Bodhi ready hai! 😎`;
     return fallbackResponse;
   }
 }
