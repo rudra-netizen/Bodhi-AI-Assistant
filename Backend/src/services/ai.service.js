@@ -351,17 +351,9 @@ async function generateGeminiImages(options = {}) {
 
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateImages`;
 
-  const width = parseInt(size.split("x")[0], 10) || 1024;
-  const height = parseInt(size.split("x")[1], 10) || 1024;
-
   const body = {
     prompt: { text: String(prompt || "") },
-    image: {
-      mimeType: "image/png",
-      size,
-      width,
-      height,
-    },
+    size: size,
     candidateCount: count,
   };
 
@@ -396,15 +388,25 @@ async function generateGeminiImages(options = {}) {
         images.push(`data:image/png;base64,${c.image.imageBytes}`);
       } else if (c?.image?.b64) {
         images.push(`data:image/png;base64,${c.image.b64}`);
+      } else if (typeof c === "string" && c.trim()) {
+        images.push(c.trim());
       }
     }
   }
 
-  // Fallback older shape
-  if (data?.images && Array.isArray(data.images)) {
+  if (images.length === 0 && data?.image?.imageBytes) {
+    images.push(`data:image/png;base64,${data.image.imageBytes}`);
+  }
+
+  if (images.length === 0 && data?.image?.b64) {
+    images.push(`data:image/png;base64,${data.image.b64}`);
+  }
+
+  if (images.length === 0 && data?.images && Array.isArray(data.images)) {
     for (const img of data.images) {
       if (img.bytesBase64)
         images.push(`data:image/png;base64,${img.bytesBase64}`);
+      else if (img.b64) images.push(`data:image/png;base64,${img.b64}`);
     }
   }
 
