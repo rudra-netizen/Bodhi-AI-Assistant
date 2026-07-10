@@ -73,7 +73,6 @@ const ChatWindow = ({
   onInputChange,
   onSendMessage,
   onImageUpload,
-  onGenerateImage,
   messagesEndRef,
 }) => {
   return (
@@ -94,19 +93,7 @@ const ChatWindow = ({
                 {message.sender === "user" ? "👤" : "🤖"}
               </div>
               <div className="message-content">
-                {message &&
-                message.text &&
-                typeof message.text === "string" &&
-                message.text.startsWith("data:image") ? (
-                  <img
-                    src={message.text}
-                    alt="generated"
-                    className="generated-image"
-                    style={{ maxWidth: "320px", borderRadius: "8px" }}
-                  />
-                ) : (
-                  renderMessageContent(message.text)
-                )}
+                {renderMessageContent(message.text)}
               </div>
             </div>
           ))
@@ -148,15 +135,6 @@ const ChatWindow = ({
               hidden
             />
           </label>
-          <button
-            type="button"
-            className="generate-btn"
-            onClick={() => onGenerateImage && onGenerateImage()}
-            disabled={loading || !userInput.trim()}
-            title="Generate image from prompt"
-          >
-            🎨
-          </button>
           <button
             type="submit"
             disabled={loading || !userInput.trim()}

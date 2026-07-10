@@ -24,50 +24,85 @@ const Home = () => {
   const [theme, setTheme] = useState("dark");
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
-  const initializationRef = useRef(false);
-  const currentResponseRef = useRef(null);
+  const initializationRef = useRef(false); // Prevent double initialization in StrictMode
+  const currentResponseRef = useRef(null); // Track the current streaming message ID
 
-  // Socket initialization (once per mount)
+  // 🔹 Socket setup (initialize ONCE on mount)
   useEffect(() => {
-    if (socketRef.current) return;
+    if (socketRef.current) return; // Already initialized
 
-    const newSocket = io(SOCKET_URL, { withCredentials: true });
+    const newSocket = io(SOCKET_URL, {
+      withCredentials: true,
+    });
+
     socketRef.current = newSocket;
 
-    newSocket.on("connect", () => console.log("✅ Connected to Socket.IO"));
-    newSocket.on("disconnect", () =>
-      console.log("⚠️ Disconnected from Socket.IO"),
-    );
+    newSocket.on("connect", () => {
+      console.log("✅ Connected to Socket.IO server");
+    });
 
+    newSocket.on("disconnect", () => {
+      console.log("⚠️ Disconnected from Socket.IO server");
+    });
+
+    console.log("🌐 Socket URL:", SOCKET_URL);
+    console.log("🌐 API base URL:", API_BASE_URL);
+
+    /* Error handling for socket connection */
+    newSocket.on("connect_error", (error) => {
+      console.error("❌ Socket connection error:", error);
+      setLoading(false);
+    });
+
+    // ✅ Handle streaming response chunks
     newSocket.on("ai-response-chunk", (message) => {
       const chunk = message.chunk;
+
       if (!currentResponseRef.current) {
+        // Create new AI message for this response stream
         const aiMessageId = Date.now();
         currentResponseRef.current = aiMessageId;
+
         const aiMessage = {
           id: aiMessageId,
           text: chunk,
           sender: "ai",
           timestamp: new Date(),
         };
+
         setMessages((prev) => [...prev, aiMessage]);
       } else {
+        // Append chunk to existing AI message
         setMessages((prev) => {
           const updated = [...prev];
-          if (updated[updated.length - 1]?.id === currentResponseRef.current) {
-            updated[updated.length - 1].text += chunk;
+          const lastMessage = updated[updated.length - 1];
+
+          if (lastMessage && lastMessage.id === currentResponseRef.current) {
+            lastMessage.text += chunk;
           }
+
           return updated;
         });
       }
     });
 
-    newSocket.on("ai-response-complete", () => {
-      console.log("✅ Stream completed");
+    // Handle stream completion
+    newSocket.on("ai-response-complete", (message) => {
+      console.log("✅ AI response stream completed");
       currentResponseRef.current = null;
       setLoading(false);
+
+      // Sync with previousChats so the Sidebar stays updated
+      setPreviousChats((prev) =>
+        prev.map((chat) =>
+          chat.id === currentChatId
+            ? { ...chat, messages: [...messages] }
+            : chat,
+        ),
+      );
     });
 
+    // ✅ FALLBACK: Listen to full AI response (for non-streamed responses)
     newSocket.on("ai-response", (message) => {
       const aiMessage = {
         id: Date.now(),
@@ -75,31 +110,38 @@ const Home = () => {
         sender: "ai",
         timestamp: new Date(),
       };
+
       setMessages((prev) => [...prev, aiMessage]);
       setLoading(false);
+      // Sync with previousChats so the Sidebar stays updated
+      setPreviousChats((prev) =>
+        prev.map((chat) =>
+          chat.id === currentChatId
+            ? { ...chat, messages: [...chat.messages, aiMessage] }
+            : chat,
+        ),
+      );
     });
 
+    /* Error message handler */
     newSocket.on("ai-error", (error) => {
       console.error("AI Error:", error);
       setLoading(false);
       const errorMessage = {
         id: Date.now(),
-        text: `Error: ${error.message}`,
+        text: `Error: ${error.message || "Failed to get response from AI"}`,
         sender: "ai",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
     });
 
-    newSocket.on("connect_error", (err) => {
-      console.error("❌ Socket error:", err);
-      setLoading(false);
-    });
+    return () => {
+      newSocket.disconnect();
+    };
+  }, []); // Initialize once on mount
 
-    return () => newSocket.disconnect();
-  }, []);
-
-  // Load chats on mount (once)
+  // 🔹 Load chats on mount
   useEffect(() => {
     if (initializationRef.current) return;
     initializationRef.current = true;
@@ -118,9 +160,11 @@ const Home = () => {
             messages: [],
             createdAt: chat.createdAt,
           }));
+
           setPreviousChats(formattedChats);
           setCurrentChatId(formattedChats[0].id);
         } else {
+          console.log("No chats found, creating new one...");
           handleNewChat();
         }
       } catch (err) {
@@ -167,16 +211,6 @@ const Home = () => {
     }
 
     const inputText = userInput.trim();
-
-    // Auto-detect image generation requests
-    const imageTrigger =
-      /\b(generate|create|make)\b.*\b(image|picture|photo)\b/i;
-    if (imageTrigger.test(inputText)) {
-      handleGenerateImage(inputText);
-      setUserInput("");
-      return;
-    }
-
     const userMessage = {
       id: Date.now(),
       text: inputText,
@@ -191,62 +225,6 @@ const Home = () => {
       content: inputText,
       chat: currentChatId,
     });
-  };
-
-  const handleGenerateImage = async (promptParam = null) => {
-    const promptText =
-      (promptParam && String(promptParam).trim()) || userInput.trim();
-    if (!promptText) return;
-    if (!currentChatId) {
-      alert("Please select or create a chat first.");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const userMessage = {
-        id: Date.now(),
-        text: `Generate image: ${promptText}`,
-        sender: "user",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, userMessage]);
-      if (!promptParam) setUserInput("");
-
-      const response = await axios.post(
-        `${API_BASE_URL}/api/chat/generate`,
-        {
-          chatId: currentChatId,
-          prompt: promptText,
-          size: "1024x1024",
-          count: 1,
-        },
-        { withCredentials: true, headers: getAuthHeaders() },
-      );
-
-      const images = response.data.images || [];
-      const aiMessages = images.map((img) => ({
-        id: Date.now() + Math.random(),
-        text: img,
-        sender: "ai",
-        timestamp: new Date(),
-      }));
-
-      setMessages((prev) => [...prev, ...aiMessages]);
-    } catch (error) {
-      console.error("Image generation failed:", error);
-      const errMsg = error?.response?.data?.message || error.message;
-      const errorMessage = {
-        id: Date.now(),
-        text: `Failed to generate image: ${errMsg}`,
-        sender: "ai",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleImageUpload = async (event) => {
@@ -437,7 +415,6 @@ const Home = () => {
         onInputChange={(e) => setUserInput(e.target.value)}
         onSendMessage={handleSendMessage}
         onImageUpload={handleImageUpload}
-        onGenerateImage={() => handleGenerateImage()}
         messagesEndRef={messagesEndRef}
       />
     </div>
