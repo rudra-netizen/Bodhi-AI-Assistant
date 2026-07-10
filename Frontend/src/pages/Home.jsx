@@ -24,85 +24,50 @@ const Home = () => {
   const [theme, setTheme] = useState("dark");
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
-  const initializationRef = useRef(false); // Prevent double initialization in StrictMode
-  const currentResponseRef = useRef(null); // Track the current streaming message ID
+  const initializationRef = useRef(false);
+  const currentResponseRef = useRef(null);
 
-  // 🔹 Socket setup (initialize ONCE on mount)
+  // Socket initialization (once per mount)
   useEffect(() => {
-    if (socketRef.current) return; // Already initialized
+    if (socketRef.current) return;
 
-    const newSocket = io(SOCKET_URL, {
-      withCredentials: true,
-    });
-
+    const newSocket = io(SOCKET_URL, { withCredentials: true });
     socketRef.current = newSocket;
 
-    newSocket.on("connect", () => {
-      console.log("✅ Connected to Socket.IO server");
-    });
+    newSocket.on("connect", () => console.log("✅ Connected to Socket.IO"));
+    newSocket.on("disconnect", () =>
+      console.log("⚠️ Disconnected from Socket.IO"),
+    );
 
-    newSocket.on("disconnect", () => {
-      console.log("⚠️ Disconnected from Socket.IO server");
-    });
-
-    console.log("🌐 Socket URL:", SOCKET_URL);
-    console.log("🌐 API base URL:", API_BASE_URL);
-
-    /* Error handling for socket connection */
-    newSocket.on("connect_error", (error) => {
-      console.error("❌ Socket connection error:", error);
-      setLoading(false);
-    });
-
-    // ✅ Handle streaming response chunks
     newSocket.on("ai-response-chunk", (message) => {
       const chunk = message.chunk;
-
       if (!currentResponseRef.current) {
-        // Create new AI message for this response stream
         const aiMessageId = Date.now();
         currentResponseRef.current = aiMessageId;
-
         const aiMessage = {
           id: aiMessageId,
           text: chunk,
           sender: "ai",
           timestamp: new Date(),
         };
-
         setMessages((prev) => [...prev, aiMessage]);
       } else {
-        // Append chunk to existing AI message
         setMessages((prev) => {
           const updated = [...prev];
-          const lastMessage = updated[updated.length - 1];
-
-          if (lastMessage && lastMessage.id === currentResponseRef.current) {
-            lastMessage.text += chunk;
+          if (updated[updated.length - 1]?.id === currentResponseRef.current) {
+            updated[updated.length - 1].text += chunk;
           }
-
           return updated;
         });
       }
     });
 
-    // Handle stream completion
-    newSocket.on("ai-response-complete", (message) => {
-      console.log("✅ AI response stream completed");
+    newSocket.on("ai-response-complete", () => {
+      console.log("✅ Stream completed");
       currentResponseRef.current = null;
       setLoading(false);
-
-      // Sync with previousChats so the Sidebar stays updated
-      setPreviousChats((prev) =>
-        prev.map((chat) =>
-          chat.id === currentChatId
-            ? { ...chat, messages: [...messages] }
-            : chat,
-        ),
-      );
     });
 
-    // ✅ FALLBACK: Listen to full AI response (for non-streamed responses)
     newSocket.on("ai-response", (message) => {
       const aiMessage = {
         id: Date.now(),
@@ -110,126 +75,103 @@ const Home = () => {
         sender: "ai",
         timestamp: new Date(),
       };
-
       setMessages((prev) => [...prev, aiMessage]);
       setLoading(false);
-      // Sync with previousChats so the Sidebar stays updated
-      setPreviousChats((prev) =>
-        prev.map((chat) =>
-          chat.id === currentChatId
-            ? { ...chat, messages: [...chat.messages, aiMessage] }
-            : chat,
-        ),
-      );
     });
 
-    /* Error message handler */
     newSocket.on("ai-error", (error) => {
       console.error("AI Error:", error);
       setLoading(false);
       const errorMessage = {
         id: Date.now(),
-        text: `Error: ${error.message || "Failed to get response from AI"}`,
+        text: `Error: ${error.message}`,
         sender: "ai",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
     });
 
-    return () => {
-      newSocket.disconnect();
-    };
-  }, []); // Initialize once on mount
+    newSocket.on("connect_error", (err) => {
+      console.error("❌ Socket error:", err);
+      setLoading(false);
+    });
 
-  // 🔹 Load previous chats on mount & prompt for title
+    return () => newSocket.disconnect();
+  }, []);
+
+  // Load chats on mount (once)
   useEffect(() => {
-    /* Prevent running twice in StrictMode */
     if (initializationRef.current) return;
     initializationRef.current = true;
 
-    /* Load previous chats from API */
-    const handleGenerateImage = async (promptParam) => {
-      const promptText =
-        (promptParam && String(promptParam).trim()) || userInput.trim();
-      if (!promptText) return;
-      if (!currentChatId) {
-        alert("Please select or create a chat before generating an image.");
-        return;
-      }
-
-      setLoading(true);
-
+    const loadChats = async () => {
       try {
-        const userMessage = {
-          id: Date.now(),
-          text: `Generate image: ${promptText}`,
-          sender: "user",
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, userMessage]);
-        setUserInput("");
+        const response = await axios.get(`${API_BASE_URL}/api/chat`, {
+          withCredentials: true,
+          headers: getAuthHeaders(),
+        });
 
-        const response = await axios.post(
-          `${API_BASE_URL}/api/chat/generate`,
-          {
-            chatId: currentChatId,
-            prompt: promptText,
-            size: "1024x1024",
-            count: 1,
-          },
-          { withCredentials: true, headers: getAuthHeaders() },
-        );
-
-        const images = response.data.images || [];
-        const aiMessages = images.map((img) => ({
-          id: Date.now() + Math.random(),
-          text: img,
-          sender: "ai",
-          timestamp: new Date(),
-        }));
-
-        setMessages((prev) => [...prev, ...aiMessages]);
-      } catch (error) {
-        console.error("Image generation failed:", error);
-        const errorMessage = {
-          id: Date.now(),
-          text: `Failed to generate image: ${error?.response?.data?.message || error.message}`,
-          sender: "ai",
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-      } finally {
-        setLoading(false);
+        if (response.data.chats && response.data.chats.length > 0) {
+          const formattedChats = response.data.chats.map((chat) => ({
+            id: chat._id,
+            title: chat.title || "New Chat",
+            messages: [],
+            createdAt: chat.createdAt,
+          }));
+          setPreviousChats(formattedChats);
+          setCurrentChatId(formattedChats[0].id);
+        } else {
+          handleNewChat();
+        }
+      } catch (err) {
+        console.error("Error loading chats:", err);
+        handleNewChat();
       }
     };
+
+    loadChats();
+  }, []);
+
+  // Auto-scroll
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Theme from localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme") || "dark";
+    setTheme(savedTheme);
+    document.documentElement.setAttribute("data-theme", savedTheme);
+  }, []);
+
+  // Apply theme
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  // 🔹 Toggle theme
   const handleToggleTheme = () => {
-    setTheme((prevTheme) => (prevTheme === "dark" ? "light" : "dark"));
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   };
 
-  // 🔹 Send Message (SOCKET ONLY)
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!userInput.trim()) return;
     if (!socketRef.current) {
-      console.warn("⚠️ Socket not connected. Reconnecting...");
+      console.warn("⚠️ Socket not connected");
       return;
     }
     if (!currentChatId) {
-      console.error("❌ No chat ID available");
+      console.error("❌ No chat ID");
       return;
     }
 
     const inputText = userInput.trim();
 
-    // Detect user intent for image generation and route to image API
+    // Auto-detect image generation requests
     const imageTrigger =
       /\b(generate|create|make)\b.*\b(image|picture|photo)\b/i;
     if (imageTrigger.test(inputText)) {
-      // Use the dedicated image-generation path instead of socket
       handleGenerateImage(inputText);
       setUserInput("");
       return;
@@ -241,102 +183,28 @@ const Home = () => {
       sender: "user",
       timestamp: new Date(),
     };
-
     setMessages((prev) => [...prev, userMessage]);
     setUserInput("");
     setLoading(true);
 
-    console.log("📤 Emitting ai-message:", {
-      chat: currentChatId,
-      content: inputText,
-    });
     socketRef.current.emit("ai-message", {
       content: inputText,
-      chat: currentChatId, // must match backend
+      chat: currentChatId,
     });
   };
 
-  const handleImageUpload = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleGenerateImage = async (promptParam = null) => {
+    const promptText =
+      (promptParam && String(promptParam).trim()) || userInput.trim();
+    if (!promptText) return;
     if (!currentChatId) {
-      alert("Please select or create a chat before uploading an image.");
-      event.target.value = null;
-      return;
-    }
-
-    setLoading(true);
-
-    const readAsDataURL = (fileToRead) =>
-      new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(fileToRead);
-      });
-
-    try {
-      const dataUrl = await readAsDataURL(file);
-      const imageBase64 = dataUrl?.toString().split(",")[1] || "";
-      const fileType = file.type || "image/png";
-      const caption = file.name;
-
-      const userMessage = {
-        id: Date.now(),
-        text: `Uploaded image: ${file.name}`,
-        sender: "user",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, userMessage]);
-
-      const response = await axios.post(
-        `${API_BASE_URL}/api/chat/image`,
-        {
-          chatId: currentChatId,
-          imageBase64,
-          imageType: fileType,
-          caption,
-        },
-        {
-          withCredentials: true,
-          headers: getAuthHeaders(),
-        },
-      );
-
-      const aiMessage = {
-        id: Date.now() + 1,
-        text: response.data.insights || response.data.message,
-        sender: "ai",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiMessage]);
-    } catch (error) {
-      console.error("Image upload failed:", error);
-      const errorMessage = {
-        id: Date.now(),
-        text: `Failed to analyze image: ${error?.response?.data?.message || error.message}`,
-        sender: "ai",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
-      event.target.value = null;
-    }
-  };
-
-  const handleGenerateImage = async () => {
-    if (!userInput.trim()) return;
-    if (!currentChatId) {
-      alert("Please select or create a chat before generating an image.");
+      alert("Please select or create a chat first.");
       return;
     }
 
     setLoading(true);
 
     try {
-      const promptText = userInput.trim();
-
       const userMessage = {
         id: Date.now(),
         text: `Generate image: ${promptText}`,
@@ -344,7 +212,7 @@ const Home = () => {
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, userMessage]);
-      setUserInput("");
+      if (!promptParam) setUserInput("");
 
       const response = await axios.post(
         `${API_BASE_URL}/api/chat/generate`,
@@ -368,9 +236,10 @@ const Home = () => {
       setMessages((prev) => [...prev, ...aiMessages]);
     } catch (error) {
       console.error("Image generation failed:", error);
+      const errMsg = error?.response?.data?.message || error.message;
       const errorMessage = {
         id: Date.now(),
-        text: `Failed to generate image: ${error?.response?.data?.message || error.message}`,
+        text: `Failed to generate image: ${errMsg}`,
         sender: "ai",
         timestamp: new Date(),
       };
@@ -380,15 +249,76 @@ const Home = () => {
     }
   };
 
-  // 🔹 New Chat with title prompt
-  const handleNewChat = async () => {
-    /* Prompt user for chat title */
-    const chatTitle = prompt("Enter a title for this chat:", "New Chat");
-
-    if (chatTitle === null) {
-      /* User cancelled - don't create chat */
+  const handleImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!currentChatId) {
+      alert("Please select or create a chat first.");
+      event.target.value = null;
       return;
     }
+
+    setLoading(true);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const imageBase64 = reader.result?.toString().split(",")[1] || "";
+        const fileType = file.type || "image/png";
+
+        const userMessage = {
+          id: Date.now(),
+          text: `Uploaded image: ${file.name}`,
+          sender: "user",
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, userMessage]);
+
+        try {
+          const response = await axios.post(
+            `${API_BASE_URL}/api/chat/image`,
+            {
+              chatId: currentChatId,
+              imageBase64,
+              imageType: fileType,
+              caption: file.name,
+            },
+            { withCredentials: true, headers: getAuthHeaders() },
+          );
+
+          const aiMessage = {
+            id: Date.now() + 1,
+            text: response.data.insights || response.data.message,
+            sender: "ai",
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, aiMessage]);
+        } catch (error) {
+          console.error("Image analysis failed:", error);
+          const errMsg = error?.response?.data?.message || error.message;
+          const errorMessage = {
+            id: Date.now(),
+            text: `Failed to analyze image: ${errMsg}`,
+            sender: "ai",
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, errorMessage]);
+        } finally {
+          setLoading(false);
+          event.target.value = null;
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Image upload error:", error);
+      setLoading(false);
+      event.target.value = null;
+    }
+  };
+
+  const handleNewChat = async () => {
+    const chatTitle = prompt("Enter a title for this chat:", "New Chat");
+    if (chatTitle === null) return;
 
     try {
       const response = await axios.post(
@@ -398,9 +328,7 @@ const Home = () => {
       );
 
       const chatData = response.data?.chat;
-      if (!chatData?._id) {
-        throw new Error("Failed to create a new chat");
-      }
+      if (!chatData?._id) throw new Error("Failed to create chat");
 
       const newChat = {
         id: chatData._id,
@@ -419,14 +347,12 @@ const Home = () => {
     }
   };
 
-  // 🔹 Select Chat
   const handleSelectChat = async (chatId) => {
     const chat = previousChats.find((c) => c.id === chatId);
     if (!chat) return;
 
     setCurrentChatId(chatId);
 
-    /* Fetch messages for this chat from backend */
     try {
       const response = await axios.get(
         `${API_BASE_URL}/api/chat/${chatId}/messages`,
@@ -436,7 +362,6 @@ const Home = () => {
         },
       );
 
-      /* Map messages to the format expected by ChatWindow */
       const formattedMessages = response.data.messages.map((msg) => ({
         id: msg._id,
         text: msg.content,
@@ -446,26 +371,22 @@ const Home = () => {
 
       setMessages(formattedMessages);
     } catch (error) {
-      console.error("Error fetching chat messages:", error);
+      console.error("Error fetching messages:", error);
       setMessages([]);
     }
 
     setSidebarOpen(false);
   };
 
-  // 🔹 Delete Chat
   const handleDeleteChat = async (chatId) => {
     try {
-      /* Delete chat from backend */
       await axios.delete(`${API_BASE_URL}/api/chat/${chatId}`, {
         withCredentials: true,
         headers: getAuthHeaders(),
       });
 
-      /* Remove from frontend state */
       setPreviousChats((prev) => prev.filter((c) => c.id !== chatId));
 
-      /* If deleting current chat, create a new one */
       if (chatId === currentChatId) {
         handleNewChat();
       }
@@ -477,7 +398,6 @@ const Home = () => {
 
   return (
     <div className="home-container">
-      {/* Theme Toggle */}
       <button
         className="theme-toggle"
         onClick={handleToggleTheme}
@@ -487,7 +407,6 @@ const Home = () => {
         {theme === "dark" ? "☀️" : "🌙"}
       </button>
 
-      {/* Sidebar Toggle */}
       <button
         className="sidebar-toggle"
         onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -502,7 +421,6 @@ const Home = () => {
         />
       )}
 
-      {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
         previousChats={previousChats}
@@ -512,7 +430,6 @@ const Home = () => {
         onDeleteChat={handleDeleteChat}
       />
 
-      {/* Chat Window */}
       <ChatWindow
         messages={messages}
         userInput={userInput}
@@ -520,7 +437,7 @@ const Home = () => {
         onInputChange={(e) => setUserInput(e.target.value)}
         onSendMessage={handleSendMessage}
         onImageUpload={handleImageUpload}
-        onGenerateImage={handleGenerateImage}
+        onGenerateImage={() => handleGenerateImage()}
         messagesEndRef={messagesEndRef}
       />
     </div>

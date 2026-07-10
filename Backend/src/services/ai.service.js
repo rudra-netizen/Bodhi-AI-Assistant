@@ -344,196 +344,56 @@ async function generateGeminiImages(options = {}) {
     model,
   });
 
-  const errors = [];
-  const surfaces = {
-    hasAi: !!ai,
-    hasAiImages: !!(ai && ai.images),
-    hasAiImagesGenerate: !!(
-      ai &&
-      ai.images &&
-      typeof ai.images.generate === "function"
-    ),
-    hasAiModels: !!(ai && ai.models),
-    hasAiModelsGenerateImages: !!(
-      ai &&
-      ai.models &&
-      typeof ai.models.generateImages === "function"
-    ),
-    hasAiModelsGenerateContent: !!(
-      ai &&
-      ai.models &&
-      typeof ai.models.generateContent === "function"
-    ),
-  };
-
   try {
-    // 1) Try ai.images.generate if available
-    if (surfaces.hasAiImagesGenerate) {
-      try {
-        console.log("[AI_SERVICE] Trying ai.images.generate surface...");
-        const resp = await ai.images.generate({
-          model: model || "image-bison-001",
-          prompt,
-          size,
-          count,
-        });
-        console.log(
-          "[AI_SERVICE] ai.images.generate response shape:",
-          Object.keys(resp || {}).slice(0, 20),
-        );
+    console.log("[AI_SERVICE] Calling Google image generation API...");
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
-        const images = [];
-        if (resp && Array.isArray(resp.data) && resp.data.length > 0) {
-          for (const item of resp.data) {
-            if (item.b64_json)
-              images.push(`data:image/png;base64,${item.b64_json}`);
-            else if (item.image && item.image.b64)
-              images.push(`data:image/png;base64,${item.image.b64}`);
-          }
-        }
-
-        if (images.length === 0 && resp && Array.isArray(resp.outputs)) {
-          for (const out of resp.outputs) {
-            if (out.content && out.mimeType)
-              images.push(`data:${out.mimeType};base64,${out.content}`);
-          }
-        }
-
-        if (images.length === 0 && resp && Array.isArray(resp.images)) {
-          for (const it of resp.images) {
-            if (it.b64_json)
-              images.push(`data:image/png;base64,${it.b64_json}`);
-            else if (it.b64) images.push(`data:image/png;base64,${it.b64}`);
-          }
-        }
-
-        if (images.length > 0) return images.slice(0, count);
-        errors.push(
-          "ai.images.generate returned no images (unexpected response shape)",
-        );
-      } catch (err) {
-        console.error(
-          "[AI_SERVICE] ai.images.generate error:",
-          err?.message || err,
-        );
-        errors.push(`ai.images.generate error: ${err?.message || String(err)}`);
-      }
-    } else {
-      console.log("[AI_SERVICE] ai.images.generate not available on client");
+    let fetchFn;
+    try {
+      const nf = await import("node-fetch");
+      fetchFn = nf.default;
+    } catch {
+      fetchFn = globalThis.fetch;
     }
 
-    // 2) Try ai.models.generateImages if available
-    if (surfaces.hasAiModelsGenerateImages) {
-      try {
-        console.log("[AI_SERVICE] Trying ai.models.generateImages surface...");
-        const resp = await ai.models.generateImages({
-          model: model || "image-bison-001",
-          prompt,
-          size,
-          count,
-        });
-        console.log(
-          "[AI_SERVICE] ai.models.generateImages response shape:",
-          Object.keys(resp || {}).slice(0, 20),
-        );
+    const apiUrl =
+      "https://generativelanguage.googleapis.com/v1beta/models/imagen-3-fast:generateImages";
+    const res = await fetchFn(`${apiUrl}?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
 
-        const images = [];
-        if (resp && Array.isArray(resp.images)) {
-          for (const it of resp.images) {
-            if (it.b64_json)
-              images.push(`data:image/png;base64,${it.b64_json}`);
-            else if (it.content)
-              images.push(`data:image/png;base64,${it.content}`);
-          }
-        }
-
-        if (images.length > 0) return images.slice(0, count);
-        errors.push(
-          "ai.models.generateImages returned no images (unexpected response shape)",
-        );
-      } catch (err) {
-        console.error(
-          "[AI_SERVICE] ai.models.generateImages error:",
-          err?.message || err,
-        );
-        errors.push(
-          `ai.models.generateImages error: ${err?.message || String(err)}`,
-        );
-      }
-    } else {
-      console.log(
-        "[AI_SERVICE] ai.models.generateImages not available on client",
-      );
-    }
-
-    // 3) As a last attempt, try using models.generateContent with a request hint for image outputs (some SDKs support it)
-    if (surfaces.hasAiModelsGenerateContent) {
-      try {
-        console.log(
-          "[AI_SERVICE] Trying ai.models.generateContent (image hint) surface...",
-        );
-        const resp = await ai.models.generateContent({
-          model: model || "gemini-2.5-flash",
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          config: { output: "image", size },
-        });
-        console.log(
-          "[AI_SERVICE] ai.models.generateContent response keys:",
-          Object.keys(resp || {}),
-        );
-
-        // Try to extract images from known fields
-        const images = [];
-        if (resp && Array.isArray(resp.data)) {
-          for (const item of resp.data) {
-            if (item.b64_json)
-              images.push(`data:image/png;base64,${item.b64_json}`);
-            else if (item.image && item.image.b64)
-              images.push(`data:image/png;base64,${item.image.b64}`);
-          }
-        }
-
-        if (
-          resp &&
-          resp.output_text &&
-          resp.output_text.startsWith("data:image")
-        ) {
-          images.push(resp.output_text);
-        }
-
-        if (images.length > 0) return images.slice(0, count);
-        errors.push(
-          "ai.models.generateContent (image hint) returned no images (unexpected response)",
-        );
-      } catch (err) {
-        console.error(
-          "[AI_SERVICE] ai.models.generateContent (image hint) error:",
-          err?.message || err,
-        );
-        errors.push(
-          `ai.models.generateContent error: ${err?.message || String(err)}`,
-        );
-      }
-    } else {
-      console.log(
-        "[AI_SERVICE] ai.models.generateContent not available on client",
-      );
-    }
-
-    // If we reach here, all attempts failed
-    const details = {
-      surfaces,
-      errors,
-    };
-    console.error("[AI_SERVICE] All image generation methods failed", details);
-    throw new Error(
-      `Failed to generate images. See server logs for details. Summarized errors: ${errors.join(" | ")}`,
+    const text = await res.text();
+    console.log(
+      "[AI_SERVICE] API status:",
+      res.status,
+      "response:",
+      text.substring(0, 250),
     );
+
+    if (!res.ok) throw new Error(`API error (${res.status}): ${text}`);
+
+    const data = JSON.parse(text);
+    if (data.error) throw new Error(`API error: ${data.error.message}`);
+
+    const images = [];
+    if (data.images && Array.isArray(data.images)) {
+      for (const img of data.images) {
+        if (img.bytesBase64)
+          images.push(`data:image/png;base64,${img.bytesBase64}`);
+      }
+    }
+
+    if (images.length > 0) {
+      console.log(`[AI_SERVICE] ✅ Generated ${images.length} image(s)`);
+      return images.slice(0, count);
+    }
+
+    throw new Error("No images in API response");
   } catch (err) {
-    console.error(
-      "[AI_SERVICE] Error generating images (final):",
-      err?.message || err,
-    );
-    throw err;
+    console.error("[AI_SERVICE] Image generation error:", err?.message);
+    throw new Error(`Image generation failed: ${err?.message}`);
   }
 }
