@@ -142,8 +142,18 @@
 
 .chat-item:hover {
   background: rgba(99, 102, 241, 0.08);
-  transform: translateX(4px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+  transform: translateX(8px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.2);
+  animation: itemGlow 0.4s ease-out;
+}
+
+@keyframes itemGlow {
+  0% {
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+  }
+  100% {
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.2);
+  }
 }
 
 .chat-item.active {

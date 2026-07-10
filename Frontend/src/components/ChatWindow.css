@@ -247,6 +247,18 @@
   padding: 8px;
   transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  animation: slideUpFromBottom 0.5s ease-out;
+}
+
+@keyframes slideUpFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .input-wrapper:focus-within {
