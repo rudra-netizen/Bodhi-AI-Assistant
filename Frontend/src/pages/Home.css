@@ -2,8 +2,10 @@
   display: flex;
   height: 100vh;
   background: var(--bg);
+  transition: background 0.5s ease;
 }
 
+/* ===== 3D BUTTON ANIMATIONS ===== */
 .theme-toggle {
   position: fixed;
   top: 16px;
@@ -20,23 +22,86 @@
   align-items: center;
   justify-content: center;
   font-size: 20px;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  animation: slideInDown 0.6s ease-out;
 }
 
 .theme-toggle:hover {
   background: var(--primary);
   color: white;
-  transform: scale(1.1);
+  transform: scale(1.15) rotateZ(10deg);
+  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
 }
 
+.theme-toggle:active {
+  transform: scale(0.95) rotateZ(10deg);
+}
+
+/* ===== SIDEBAR ANIMATIONS ===== */
 .sidebar-toggle {
   display: none;
 }
 
 .sidebar-overlay {
   display: none;
+  animation: fadeIn 0.3s ease;
 }
 
+/* ===== KEYFRAME ANIMATIONS ===== */
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* ===== LARGE SCREEN STYLES ===== */
 @media (max-width: 768px) {
   .home-container {
     flex-direction: column;
@@ -56,11 +121,19 @@
     height: 44px;
     font-size: 20px;
     cursor: pointer;
-    transition: background 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+    animation: slideInDown 0.6s ease-out 0.1s both;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
   }
 
   .sidebar-toggle:hover {
-    background: var(--primary-hover);
+    background: var(--primary);
+    transform: scale(1.1) translateY(-2px);
+    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
+  }
+
+  .sidebar-toggle:active {
+    transform: scale(0.95);
   }
 
   .sidebar-overlay {
@@ -72,6 +145,7 @@
     bottom: 0;
     background: rgba(0, 0, 0, 0.5);
     z-index: 98;
+    backdrop-filter: blur(4px);
   }
 }
 
@@ -82,5 +156,13 @@
     font-size: 18px;
     top: 12px;
     left: 12px;
+  }
+
+  .theme-toggle {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    top: 12px;
+    right: 12px;
   }
 }
