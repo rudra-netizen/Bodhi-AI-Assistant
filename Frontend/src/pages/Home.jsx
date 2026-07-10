@@ -211,6 +211,14 @@ const Home = () => {
     }
 
     const inputText = userInput.trim();
+    // Auto-detect image generation requests
+    const imageTrigger =
+      /\b(generate|create|make)\b.*\b(image|picture|photo)\b/i;
+    if (imageTrigger.test(inputText)) {
+      handleGenerateImage(inputText);
+      setUserInput("");
+      return;
+    }
     const userMessage = {
       id: Date.now(),
       text: inputText,
@@ -225,6 +233,60 @@ const Home = () => {
       content: inputText,
       chat: currentChatId,
     });
+  };
+
+  const handleGenerateImage = async (promptParam = null) => {
+    const promptText =
+      (promptParam && String(promptParam).trim()) || userInput.trim();
+    if (!promptText) return;
+    if (!currentChatId) {
+      alert("Please select or create a chat first.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const userMessage = {
+        id: Date.now(),
+        text: `Generate image: ${promptText}`,
+        sender: "user",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, userMessage]);
+      if (!promptParam) setUserInput("");
+
+      const response = await axios.post(
+        `${API_BASE_URL}/api/chat/generate`,
+        {
+          chatId: currentChatId,
+          prompt: promptText,
+          size: "1024x1024",
+          count: 1,
+        },
+        { withCredentials: true, headers: getAuthHeaders() },
+      );
+
+      const images = response.data.images || [];
+      const aiMessages = images.map((img) => ({
+        id: Date.now() + Math.random(),
+        text: img,
+        sender: "ai",
+        timestamp: new Date(),
+      }));
+      setMessages((prev) => [...prev, ...aiMessages]);
+    } catch (error) {
+      console.error("Image generation failed:", error);
+      const errMsg = error?.response?.data?.message || error.message;
+      const errorMessage = {
+        id: Date.now(),
+        text: `Failed to generate image: ${errMsg}`,
+        sender: "ai",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleImageUpload = async (event) => {
