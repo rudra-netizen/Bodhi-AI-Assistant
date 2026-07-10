@@ -21,6 +21,7 @@ const Home = () => {
   const [currentChatId, setCurrentChatId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [theme, setTheme] = useState("dark");
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
   const initializationRef = useRef(false); // Prevent double initialization in StrictMode
@@ -185,6 +186,24 @@ const Home = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // 🔹 Initialize theme from localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme") || "dark";
+    setTheme(savedTheme);
+    document.documentElement.setAttribute("data-theme", savedTheme);
+  }, []);
+
+  // 🔹 Apply theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  // 🔹 Toggle theme
+  const handleToggleTheme = () => {
+    setTheme((prevTheme) => (prevTheme === "dark" ? "light" : "dark"));
+  };
 
   // 🔹 Send Message (SOCKET ONLY)
   const handleSendMessage = (e) => {
@@ -388,6 +407,16 @@ const Home = () => {
 
   return (
     <div className="home-container">
+      {/* Theme Toggle */}
+      <button
+        className="theme-toggle"
+        onClick={handleToggleTheme}
+        title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+        aria-label="Toggle theme"
+      >
+        {theme === "dark" ? "☀️" : "🌙"}
+      </button>
+
       {/* Sidebar Toggle */}
       <button
         className="sidebar-toggle"
