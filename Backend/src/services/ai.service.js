@@ -324,6 +324,82 @@ module.exports = {
   generateResponseStream,
   generateGeminiImageInsights,
   generateImageInsights,
+  generateGeminiImages,
   generateVector,
   detectLanguage,
 };
+
+// Implementation: text -> image generation for Gemini/GenAI
+async function generateGeminiImages(options = {}) {
+  const { prompt, size = "1024x1024", count = 1 } = options;
+  console.log("[AI_SERVICE] generateGeminiImages called", {
+    prompt,
+    size,
+    count,
+  });
+
+  try {
+    // Try the client image helper if present
+    if (ai.images && typeof ai.images.generate === "function") {
+      const resp = await ai.images.generate({
+        model: "image-bison-001",
+        prompt,
+        size,
+        count,
+      });
+
+      const images = [];
+
+      if (resp && Array.isArray(resp.data) && resp.data.length > 0) {
+        for (const item of resp.data) {
+          if (item.b64_json)
+            images.push(`data:image/png;base64,${item.b64_json}`);
+          else if (item.image && item.image.b64)
+            images.push(`data:image/png;base64,${item.image.b64}`);
+        }
+      }
+
+      if (images.length === 0 && resp && Array.isArray(resp.outputs)) {
+        for (const out of resp.outputs) {
+          if (out.content && out.mimeType)
+            images.push(`data:${out.mimeType};base64,${out.content}`);
+        }
+      }
+
+      if (images.length === 0 && resp && Array.isArray(resp.images)) {
+        for (const it of resp.images) {
+          if (it.b64_json) images.push(`data:image/png;base64,${it.b64_json}`);
+          else if (it.b64) images.push(`data:image/png;base64,${it.b64}`);
+        }
+      }
+
+      if (images.length > 0) return images.slice(0, count);
+    }
+
+    // Try alternate surface
+    if (ai.models && typeof ai.models.generateImages === "function") {
+      const resp = await ai.models.generateImages({
+        model: "image-bison-001",
+        prompt,
+        size,
+        count,
+      });
+      const images = [];
+      if (resp && Array.isArray(resp.images)) {
+        for (const it of resp.images) {
+          if (it.b64_json) images.push(`data:image/png;base64,${it.b64_json}`);
+          else if (it.content)
+            images.push(`data:image/png;base64,${it.content}`);
+        }
+      }
+      if (images.length > 0) return images.slice(0, count);
+    }
+
+    throw new Error(
+      "No compatible image-generation method available on GenAI client",
+    );
+  } catch (err) {
+    console.error("[AI_SERVICE] Error generating images:", err?.message || err);
+    throw err;
+  }
+}

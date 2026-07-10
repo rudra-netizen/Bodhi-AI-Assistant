@@ -203,6 +203,92 @@ async function handleImageUpload(req, res) {
   }
 }
 
+async function handleGenerateImage(req, res) {
+  const { chatId, prompt, size = "1024x1024", count = 1 } = req.body;
+  const user = req.user;
+
+  if (!chatId || !prompt) {
+    return res.status(400).json({ message: "chatId and prompt are required" });
+  }
+
+  const chat = await chatModel.findById(chatId);
+  if (!chat) {
+    return res.status(404).json({ message: "Chat not found" });
+  }
+
+  if (chat.user.toString() !== user._id.toString()) {
+    return res
+      .status(403)
+      .json({ message: "Unauthorized: Cannot access this chat" });
+  }
+
+  try {
+    const userMessage = await messageModel.create({
+      chat: chatId,
+      user: user._id,
+      content: `Generate image: "${prompt}"`,
+      role: "user",
+    });
+
+    const images = await aiService.generateGeminiImages({
+      prompt,
+      size,
+      count,
+    });
+
+    const createdResponses = [];
+    for (const img of images) {
+      const responseMessage = await messageModel.create({
+        chat: chatId,
+        user: user._id,
+        content: img,
+        role: "model",
+      });
+
+      createdResponses.push(responseMessage);
+    }
+
+    // Create vectors for prompt and a small text marker
+    const [userVector, responseVector] = await Promise.all([
+      aiService.generateVector(userMessage.content),
+      aiService.generateVector(
+        `Generated ${images.length} image(s) for prompt: ${prompt}`,
+      ),
+    ]);
+
+    if (Array.isArray(userVector) && userVector.length > 0) {
+      await createMemory({
+        vector: userVector,
+        messageId: userMessage._id.toString(),
+        metadata: {
+          chat: chatId.toString(),
+          user: user._id.toString(),
+          text: userMessage.content,
+        },
+      });
+    }
+
+    if (Array.isArray(responseVector) && responseVector.length > 0) {
+      await createMemory({
+        vector: responseVector,
+        messageId: createdResponses[0]._id.toString(),
+        metadata: {
+          chat: chatId.toString(),
+          user: user._id.toString(),
+          text: `Generated ${images.length} image(s)`,
+        },
+      });
+    }
+
+    res.status(200).json({ message: "Images generated successfully", images });
+  } catch (error) {
+    console.error("[CHAT_CONTROLLER] Error generating images:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to generate images", error: error.message });
+  }
+}
+
 module.exports = {
   createChat,
   getChats,
@@ -210,4 +296,5 @@ module.exports = {
   deleteChat,
   getChatMessages,
   handleImageUpload,
+  handleGenerateImage,
 };

@@ -310,6 +310,61 @@ const Home = () => {
     }
   };
 
+  const handleGenerateImage = async () => {
+    if (!userInput.trim()) return;
+    if (!currentChatId) {
+      alert("Please select or create a chat before generating an image.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const promptText = userInput.trim();
+
+      const userMessage = {
+        id: Date.now(),
+        text: `Generate image: ${promptText}`,
+        sender: "user",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, userMessage]);
+      setUserInput("");
+
+      const response = await axios.post(
+        `${API_BASE_URL}/api/chat/generate`,
+        {
+          chatId: currentChatId,
+          prompt: promptText,
+          size: "1024x1024",
+          count: 1,
+        },
+        { withCredentials: true, headers: getAuthHeaders() },
+      );
+
+      const images = response.data.images || [];
+      const aiMessages = images.map((img) => ({
+        id: Date.now() + Math.random(),
+        text: img,
+        sender: "ai",
+        timestamp: new Date(),
+      }));
+
+      setMessages((prev) => [...prev, ...aiMessages]);
+    } catch (error) {
+      console.error("Image generation failed:", error);
+      const errorMessage = {
+        id: Date.now(),
+        text: `Failed to generate image: ${error?.response?.data?.message || error.message}`,
+        sender: "ai",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 🔹 New Chat with title prompt
   const handleNewChat = async () => {
     /* Prompt user for chat title */
@@ -450,6 +505,7 @@ const Home = () => {
         onInputChange={(e) => setUserInput(e.target.value)}
         onSendMessage={handleSendMessage}
         onImageUpload={handleImageUpload}
+        onGenerateImage={handleGenerateImage}
         messagesEndRef={messagesEndRef}
       />
     </div>
