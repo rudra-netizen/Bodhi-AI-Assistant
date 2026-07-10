@@ -39,13 +39,31 @@ function getSystemInstruction(language = "english") {
 `;
   }
 
-  return `
-<persona>
-Hello! I'm Bodhi, your helpful AI assistant. I'm friendly, clear, and always ready to help with accurate and useful information. I respond entirely in English and use simple, direct language. I'm professional yet approachable, focusing on clarity and helpfulness in every response.
+  return `You are Bodhi, a helpful AI assistant. 
 
-Important: When answering, format responses with clear bullet points or numbered lists when possible. Use simple markdown formatting (for example: "- item" or "1. step") to make content easy to read. Keep explanations concise and well-structured.
-</persona>
-`;
+**CRITICAL INSTRUCTION - YOU MUST FOLLOW THIS:**
+- Respond ONLY in English. 100% English. No exceptions.
+- Do NOT use Hindi, Punjabi, Urdu, or any other language.
+- Do NOT mix languages.
+- Do NOT use Hindustani or local dialect.
+- Every single word must be in proper English.
+
+When answering:
+- Use clear bullet points or numbered lists when helpful
+- Keep formatting simple and readable
+- Always be accurate and helpful
+- Use only standard English words and phrases
+
+Example good responses:
+- "Express.js is a web application framework for Node.js."
+- "Here are the key features: 1. Lightweight 2. Flexible 3. Minimalist"
+
+Example BAD responses (NEVER do this):
+- "Oye hoye, Express.js baare..." (NO - this is Punjabi)
+- "Arre bhai, Express hai..." (NO - this is Hindustani)
+- "Haan, toh Express.js..." (NO - this is mixed language)
+
+You MUST respond only in English.`;
 }
 
 async function generateResponse(prompt) {
@@ -76,18 +94,55 @@ async function generateResponse(prompt) {
     });
     console.timeEnd("[AI_SERVICE] Gemini API call");
 
+    let responseText = response?.text;
     console.log(
       "[AI_SERVICE] Gemini response received:",
-      response?.text?.substring(0, 50) || "EMPTY",
+      responseText?.substring(0, 50) || "EMPTY",
     );
-    if (!response?.text) {
+
+    if (!responseText) {
       console.error(
         "[AI_SERVICE] Invalid response from Gemini:",
         JSON.stringify(response),
       );
       throw new Error("Gemini returned empty response");
     }
-    return response.text;
+
+    // If English was requested, filter out any non-English responses
+    if (userLanguage === "english") {
+      // Check if response contains Devanagari, Gurmukhi, or other non-Latin scripts
+      const nonLatinPattern = /[\u0900-\u097F\u0A00-\u0A7F\u0600-\u06FF]/g;
+      const hasNonLatin = nonLatinPattern.test(responseText);
+
+      if (hasNonLatin) {
+        console.warn(
+          "[AI_SERVICE] Response contains non-Latin characters, re-requesting in English...",
+        );
+        const retryResponse = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [
+            ...prompt,
+            {
+              role: "user",
+              parts: [
+                {
+                  text: "Please respond ONLY in English. No Hindi, Punjabi, or any other language. Reply to the question in pure English only.",
+                },
+              ],
+            },
+          ],
+          config: {
+            temperature: 0.5,
+            systemInstruction:
+              "You MUST respond only in English. No other languages allowed.",
+          },
+        });
+        responseText = retryResponse?.text || responseText;
+        console.log("[AI_SERVICE] Retry response received");
+      }
+    }
+
+    return responseText;
   } catch (err) {
     console.error("[AI_SERVICE] Error in generateResponse:", err.message);
     throw err;
@@ -136,6 +191,19 @@ async function generateResponseStream(prompt, onChunk) {
       "[AI_SERVICE] ✅ Stream completed. Total length:",
       fullResponse.length,
     );
+
+    // If English was requested, verify response doesn't contain non-Latin scripts
+    if (userLanguage === "english") {
+      const nonLatinPattern = /[\u0900-\u097F\u0A00-\u0A7F\u0600-\u06FF]/g;
+      const hasNonLatin = nonLatinPattern.test(fullResponse);
+
+      if (hasNonLatin) {
+        console.warn(
+          "[AI_SERVICE] Stream response contains non-Latin characters, was supposed to be English",
+        );
+      }
+    }
+
     return fullResponse;
   } catch (err) {
     console.error("[AI_SERVICE] Error in generateResponseStream:", err.message);
