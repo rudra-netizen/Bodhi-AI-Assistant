@@ -15,7 +15,7 @@ async function generateResponse(prompt) {
         temperature: 0.7,
         systemInstruction: `
 <persona>
-Eh bhai, mera naam hai Bodhi, aur main hoon ek super helpful AI with a playful tone and a full-on Punjabi accent! Main hamesha mazzaak karta hoon, thoda fun add karta hoon answers mein, jaise ghar ka yaar. Har question pe accurate aur useful jawab deta hoon, lekin playful reh ke, 'yaar', 'bhai', 'koi gal nahi' jaise words use kar ke. Conversation history se relevant info use kar, warna ignore kar de. Always make it fun, jaise Punjabi party mein baat kar rahe ho! lekin yaad rakhna, main hamesha helpful aur informative rahunga, bas thoda fun ke saath! aur haan agar user angrezi mein baat kare, toh main usi language mein reply karunga, punjabi chod ke, taki conversation smooth rahe. Toh bas, pooch lo apne sawaal, main hoon na, Bodhi, ready to help with a smile and a bit of masti!
+Eh bhai, mera naam hai Bodhi, aur main hoon ek super helpful AI with a playful tone and a full-on English accent! Main hamesha friendly hoon, thoda fun add karta hoon answers mein, jaise ghar ka yaar. Har question pe accurate aur useful jawab deta hoon, lekin playful reh ke, 'yaar', 'bhai' jaise words use kar ke. Conversation history se relevant info use kar, warna ignore kar de. Always make it fun, jaise Punjabi party mein baat kar rahe ho! lekin yaad rakhna, main hamesha helpful aur informative rahunga, bas thoda fun ke saath! aur haan agar user hindi mein baat kare, toh main usi language mein reply karunga, english chod ke, taki conversation smooth rahe. Toh bas, pooch lo apne sawaal, main hoon na, Bodhi, ready to help with a smile and a bit of masti!
 
 Important: When answering, format the response using clear bullets or numbered steps wherever possible. Use markdown-style list formatting (for example: "- item" or "1. step") so the output is easy to read. Prefer bullet lists for multi-point explanations and keep each item concise.
 </persona>
@@ -42,68 +42,80 @@ Important: When answering, format the response using clear bullets or numbered s
   }
 }
 
+async function generateGeminiImageInsights({
+  imageBase64,
+  imageType,
+  caption = "",
+}) {
+  console.log("[AI_SERVICE] Starting generateGeminiImageInsights...");
+  console.log("[AI_SERVICE] Base64 length:", imageBase64?.length || 0);
+  console.log("[AI_SERVICE] Image type:", imageType);
+
+  // Clean the base64
+  let cleanBase64 = imageBase64;
+  if (cleanBase64.includes(",")) {
+    cleanBase64 = cleanBase64.split(",")[1];
+  }
+  cleanBase64 = cleanBase64.trim();
+
+  console.log("[AI_SERVICE] Cleaned base64 length:", cleanBase64.length);
+
+  const prompt = `You are Bodhi, a playful AI with Punjabi accent! Analyze this image and describe:\n- Main subjects/objects in the image\n- Colors and overall mood\n- Any activities or actions happening\n- Interesting details\n\n${caption ? `User's caption: "${caption}"` : ""}\n\nAnswer in a friendly, fun way with Punjabi slang like \"yaar\", \"bhai\", etc. Keep it short and engaging.`;
+
+  console.log("[AI_SERVICE] Sending image to Gemini 2.5 flash for analysis...");
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            inlineData: {
+              mimeType: imageType || "image/jpeg",
+              data: cleanBase64,
+            },
+          },
+          {
+            text: prompt,
+          },
+        ],
+      },
+    ],
+    config: {
+      temperature: 0.7,
+    },
+  });
+
+  const responseText = response?.text || response?.output_text;
+  console.log(
+    "[AI_SERVICE] Gemini image response length:",
+    responseText?.length,
+  );
+
+  if (responseText && responseText.trim().length > 0) {
+    console.log("[AI_SERVICE] ✅ Gemini image analysis SUCCESSFUL!");
+    return responseText;
+  }
+
+  console.log(
+    "[AI_SERVICE] Gemini response object:",
+    JSON.stringify(response).substring(0, 1000),
+  );
+  throw new Error("Empty response from Gemini image analysis");
+}
+
 async function generateImageInsights({ imageBase64, imageType, caption = "" }) {
   try {
-    console.log("[AI_SERVICE] Starting generateImageInsights...");
-    console.log("[AI_SERVICE] Base64 length:", imageBase64?.length || 0);
-    console.log("[AI_SERVICE] Image type:", imageType);
-
-    // Clean the base64
-    let cleanBase64 = imageBase64;
-    if (imageBase64.includes(",")) {
-      cleanBase64 = imageBase64.split(",")[1];
-    }
-    cleanBase64 = cleanBase64.trim();
-
-    console.log("[AI_SERVICE] Cleaned base64 length:", cleanBase64.length);
-
-    const prompt = `You are Bodhi, a playful AI with Punjabi accent! Analyze this image and describe:\n- Main subjects/objects in the image\n- Colors and overall mood\n- Any activities or actions happening\n- Interesting details\n\n${caption ? `User's caption: "${caption}"` : ""}\n\nAnswer in a friendly, fun way with Punjabi slang like "yaar", "bhai", etc. Keep it short and engaging.`;
-
-    console.log(
-      "[AI_SERVICE] Sending image to Gemini 2.5 flash for analysis...",
-    );
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              inlineData: {
-                mimeType: imageType || "image/jpeg",
-                data: cleanBase64,
-              },
-            },
-            {
-              text: prompt,
-            },
-          ],
-        },
-      ],
-      config: {
-        temperature: 0.7,
-      },
+    return await generateGeminiImageInsights({
+      imageBase64,
+      imageType,
+      caption,
     });
-
-    const responseText = response?.text;
-    console.log(
-      "[AI_SERVICE] Gemini image response length:",
-      responseText?.length,
-    );
-
-    if (responseText && responseText.trim().length > 0) {
-      console.log("[AI_SERVICE] ✅ Gemini image analysis SUCCESSFUL!");
-      return responseText;
-    }
-
-    throw new Error("Empty response from Gemini image analysis");
   } catch (err) {
     console.error(
-      "[AI_SERVICE] Gemini image analysis failed:",
+      "[AI_SERVICE] generateImageInsights fallback due to error:",
       err?.message || err,
     );
-    console.error("[AI_SERVICE] Full error:", err);
-
     const fallbackResponse = `🎨 Arre yaar! Tera image upload ho gaya successfully! \n\n${caption ? `Caption: "${caption}"` : ""}\n\nPar visual analysis abhi thoda issue hai. Image safe hai and database mein save ho gaya hai. Agar detailed analysis chahiye, text se pooch le, Bodhi ready hai! 😎`;
     return fallbackResponse;
   }
@@ -138,4 +150,9 @@ async function generateVector(content) {
   }
 }
 
-module.exports = { generateResponse, generateImageInsights, generateVector };
+module.exports = {
+  generateResponse,
+  generateGeminiImageInsights,
+  generateImageInsights,
+  generateVector,
+};
