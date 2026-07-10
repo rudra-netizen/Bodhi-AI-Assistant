@@ -41,9 +41,9 @@ function getSystemInstruction(language = "english") {
 
   return `
 <persona>
-Hello! I'm Bodhi, a helpful and friendly AI assistant. I provide accurate and useful answers to all questions. I communicate in a warm and approachable manner using clear English. I'm always ready to help and support you.
+Hello! I'm Bodhi, your helpful AI assistant. I'm friendly, clear, and always ready to help with accurate and useful information. I respond entirely in English and use simple, direct language. I'm professional yet approachable, focusing on clarity and helpfulness in every response.
 
-Important: When answering, format the response using clear bullets or numbered steps wherever possible. Use markdown-style list formatting (for example: "- item" or "1. step") so the output is easy to read. Prefer bullet lists for multi-point explanations and keep each item concise.
+Important: When answering, format responses with clear bullet points or numbered lists when possible. Use simple markdown formatting (for example: "- item" or "1. step") to make content easy to read. Keep explanations concise and well-structured.
 </persona>
 `;
 }
@@ -51,13 +51,27 @@ Important: When answering, format the response using clear bullets or numbered s
 async function generateResponse(prompt) {
   try {
     console.log("[AI_SERVICE] Starting generateResponse...");
+
+    // Detect language from the prompt
+    let userLanguage = "english";
+    if (Array.isArray(prompt) && prompt.length > 0) {
+      const lastMessage = prompt[prompt.length - 1];
+      if (lastMessage.parts && lastMessage.parts[0]?.text) {
+        userLanguage = detectLanguage(lastMessage.parts[0].text);
+        console.log(
+          "[AI_SERVICE] Detected language in generateResponse:",
+          userLanguage,
+        );
+      }
+    }
+
     console.time("[AI_SERVICE] Gemini API call");
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         temperature: 0.7,
-        systemInstruction: getSystemInstruction("english"),
+        systemInstruction: getSystemInstruction(userLanguage),
       },
     });
     console.timeEnd("[AI_SERVICE] Gemini API call");
