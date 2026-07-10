@@ -222,6 +222,14 @@ async function handleGenerateImage(req, res) {
   }
 
   try {
+    console.log("[CHAT_CONTROLLER] handleGenerateImage request", {
+      chatId,
+      prompt,
+      size,
+      count,
+      user: user._id.toString(),
+    });
+
     const userMessage = await messageModel.create({
       chat: chatId,
       user: user._id,
@@ -281,9 +289,14 @@ async function handleGenerateImage(req, res) {
     res.status(200).json({ message: "Images generated successfully", images });
   } catch (error) {
     console.error("[CHAT_CONTROLLER] Error generating images:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to generate images", error: error.message });
+    if (error?.response) {
+      console.error("[CHAT_CONTROLLER] Error response:", error.response);
+    }
+    res.status(500).json({
+      message: "Failed to generate images",
+      error: error.message,
+      details: error?.response?.data || null,
+    });
   }
 }
 

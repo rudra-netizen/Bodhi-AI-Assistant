@@ -284,9 +284,11 @@ const Home = () => {
     } catch (error) {
       console.error("Image generation failed:", error);
       const errMsg = error?.response?.data?.message || error.message;
+      const errDetails =
+        error?.response?.data?.details || error?.response?.data?.error || null;
       const errorMessage = {
         id: Date.now(),
-        text: `Failed to generate image: ${errMsg}`,
+        text: `Failed to generate image: ${errMsg}${errDetails ? ` (${JSON.stringify(errDetails)})` : ""}`,
         sender: "ai",
         timestamp: new Date(),
       };

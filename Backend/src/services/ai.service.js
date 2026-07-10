@@ -352,10 +352,11 @@ async function generateGeminiImages(options = {}) {
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateImages`;
 
   const body = {
-    prompt: { text: String(prompt || "") },
-    size: size,
-    candidateCount: count,
+    prompt: String(prompt || ""),
   };
+
+  console.log("[AI_SERVICE] Image API URL:", apiUrl);
+  console.log("[AI_SERVICE] Image API request body:", JSON.stringify(body));
 
   const res = await fetchFn(`${apiUrl}?key=${apiKey}`, {
     method: "POST",
@@ -364,13 +365,21 @@ async function generateGeminiImages(options = {}) {
   });
 
   const text = await res.text();
+  console.log("[AI_SERVICE] Image API response status:", res.status);
+  console.log(
+    "[AI_SERVICE] Image API response (first 500 chars):",
+    text.substring(0, 500),
+  );
+
   if (!res.ok) {
     console.error(
       "[AI_SERVICE] Image API error:",
       res.status,
-      text.substring(0, 400),
+      text.substring(0, 500),
     );
-    throw new Error(`Image API error: ${res.status}`);
+    throw new Error(
+      `Image API error: ${res.status} - ${text.substring(0, 200)}`,
+    );
   }
 
   let data = {};
@@ -382,7 +391,13 @@ async function generateGeminiImages(options = {}) {
   }
 
   const images = [];
+  console.log("[AI_SERVICE] Parsed API response data keys:", Object.keys(data));
+
   if (data?.candidates && Array.isArray(data.candidates)) {
+    console.log(
+      "[AI_SERVICE] Found candidates array, length:",
+      data.candidates.length,
+    );
     for (const c of data.candidates) {
       if (c?.image?.imageBytes) {
         images.push(`data:image/png;base64,${c.image.imageBytes}`);
@@ -395,25 +410,40 @@ async function generateGeminiImages(options = {}) {
   }
 
   if (images.length === 0 && data?.image?.imageBytes) {
+    console.log("[AI_SERVICE] Found image.imageBytes");
     images.push(`data:image/png;base64,${data.image.imageBytes}`);
   }
 
   if (images.length === 0 && data?.image?.b64) {
+    console.log("[AI_SERVICE] Found image.b64");
     images.push(`data:image/png;base64,${data.image.b64}`);
   }
 
   if (images.length === 0 && data?.images && Array.isArray(data.images)) {
+    console.log("[AI_SERVICE] Found images array, length:", data.images.length);
     for (const img of data.images) {
       if (img.bytesBase64)
         images.push(`data:image/png;base64,${img.bytesBase64}`);
       else if (img.b64) images.push(`data:image/png;base64,${img.b64}`);
+      else if (typeof img === "string" && img.trim()) images.push(img.trim());
     }
   }
 
+  if (
+    images.length === 0 &&
+    typeof data?.image === "string" &&
+    data.image.trim()
+  ) {
+    console.log("[AI_SERVICE] Found string image data");
+    images.push(data.image.trim());
+  }
+
+  console.log("[AI_SERVICE] Total images extracted:", images.length);
+
   if (images.length === 0) {
-    console.warn(
-      "[AI_SERVICE] No images returned from API",
-      JSON.stringify(data).substring(0, 400),
+    console.error(
+      "[AI_SERVICE] No images returned from API. Full response:",
+      JSON.stringify(data),
     );
     throw new Error("No images returned from image API");
   }
