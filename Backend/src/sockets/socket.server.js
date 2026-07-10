@@ -174,34 +174,45 @@ function initSocketServer(httpServer) {
 
           let response;
           try {
-            console.log("🔄 Calling AI service...");
-            response = await aiService.generateResponse([...ltm, ...stm]);
+            console.log("🔄 Calling AI service with streaming...");
+
+            // Use streaming response - sends chunks as they arrive
+            response = await aiService.generateResponseStream(
+              [...ltm, ...stm],
+              (chunk) => {
+                // Emit each chunk to client in real-time
+                socket.emit("ai-response-chunk", {
+                  chunk: chunk,
+                  chat: messagePayLoad.chat,
+                });
+              },
+            );
+
             console.log(
-              "🤖 AI Response generated:",
+              "🤖 AI Response streaming completed:",
               response?.substring(0, 100),
             );
+
+            // Send completion signal
+            if (!responseSent) {
+              responseSent = true;
+              socket.emit("ai-response-complete", {
+                chat: messagePayLoad.chat,
+              });
+            }
           } catch (aiError) {
             console.error("❌ AI Service Error:", aiError.message);
             /* Fallback response if AI fails */
             response = `I encountered an error processing your request. Error: ${aiError.message}. Your message was: "${messagePayLoad.content}"`;
-          }
 
-          /*const responseMessage = await messageModel.create({
-            chat: messagePayLoad.chat,
-            user: socket.user._id,
-            content: response,
-            role: "model",
-          });
-          const responseVector = await aiService.generateVector(response);*/
-
-          /* Send response ONCE */
-          if (!responseSent) {
-            responseSent = true;
-            socket.emit("ai-response", {
-              content: response,
-              chat: messagePayLoad.chat,
-            });
-            console.log("✅ ai-response sent to client");
+            /* Send error as single response */
+            if (!responseSent) {
+              responseSent = true;
+              socket.emit("ai-response", {
+                content: response,
+                chat: messagePayLoad.chat,
+              });
+            }
           }
 
           /* Save to database in parallel - don't wait for this to complete */

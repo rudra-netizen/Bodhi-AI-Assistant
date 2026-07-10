@@ -24,6 +24,7 @@ const Home = () => {
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
   const initializationRef = useRef(false); // Prevent double initialization in StrictMode
+  const currentResponseRef = useRef(null); // Track the current streaming message ID
 
   // 🔹 Socket setup (initialize ONCE on mount)
   useEffect(() => {
@@ -52,7 +53,55 @@ const Home = () => {
       setLoading(false);
     });
 
-    // ✅ ONLY listen to AI response
+    // ✅ Handle streaming response chunks
+    newSocket.on("ai-response-chunk", (message) => {
+      const chunk = message.chunk;
+
+      if (!currentResponseRef.current) {
+        // Create new AI message for this response stream
+        const aiMessageId = Date.now();
+        currentResponseRef.current = aiMessageId;
+
+        const aiMessage = {
+          id: aiMessageId,
+          text: chunk,
+          sender: "ai",
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, aiMessage]);
+      } else {
+        // Append chunk to existing AI message
+        setMessages((prev) => {
+          const updated = [...prev];
+          const lastMessage = updated[updated.length - 1];
+
+          if (lastMessage && lastMessage.id === currentResponseRef.current) {
+            lastMessage.text += chunk;
+          }
+
+          return updated;
+        });
+      }
+    });
+
+    // Handle stream completion
+    newSocket.on("ai-response-complete", (message) => {
+      console.log("✅ AI response stream completed");
+      currentResponseRef.current = null;
+      setLoading(false);
+
+      // Sync with previousChats so the Sidebar stays updated
+      setPreviousChats((prev) =>
+        prev.map((chat) =>
+          chat.id === currentChatId
+            ? { ...chat, messages: [...messages] }
+            : chat,
+        ),
+      );
+    });
+
+    // ✅ FALLBACK: Listen to full AI response (for non-streamed responses)
     newSocket.on("ai-response", (message) => {
       const aiMessage = {
         id: Date.now(),
@@ -62,7 +111,7 @@ const Home = () => {
       };
 
       setMessages((prev) => [...prev, aiMessage]);
-      setLoading(false); // Stop loading when AI responds
+      setLoading(false);
       // Sync with previousChats so the Sidebar stays updated
       setPreviousChats((prev) =>
         prev.map((chat) =>
