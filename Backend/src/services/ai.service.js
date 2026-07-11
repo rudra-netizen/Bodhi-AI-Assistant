@@ -211,84 +211,6 @@ async function generateResponseStream(prompt, onChunk) {
   }
 }
 
-async function generateGeminiImageInsights({
-  imageBase64,
-  imageType,
-  caption = "",
-}) {
-  console.log("[AI_SERVICE] Starting generateGeminiImageInsights...");
-  console.log("[AI_SERVICE] Base64 length:", imageBase64?.length || 0);
-  console.log("[AI_SERVICE] Image type:", imageType);
-
-  // Clean the base64
-  let cleanBase64 = imageBase64;
-  if (cleanBase64.includes(",")) {
-    cleanBase64 = cleanBase64.split(",")[1];
-  }
-  cleanBase64 = cleanBase64.trim();
-
-  console.log("[AI_SERVICE] Cleaned base64 length:", cleanBase64.length);
-
-  const prompt = `You are Bodhi, a playful AI with english accent! Analyze this image and describe:\n- Main subjects/objects in the image\n- Colors and overall mood\n- Any activities or actions happening\n- Interesting details\n\n${caption ? `User's caption: "${caption}"` : ""}\n\nAnswer in a friendly, fun way with slang like \"yaar\", \"bhai\", etc. Keep it short and engaging.`;
-
-  console.log("[AI_SERVICE] Sending image to Gemini 2.5 flash for analysis...");
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            inlineData: {
-              mimeType: imageType || "image/jpeg",
-              data: cleanBase64,
-            },
-          },
-          {
-            text: prompt,
-          },
-        ],
-      },
-    ],
-    config: {
-      temperature: 0.7,
-    },
-  });
-
-  const responseText = response?.text || response?.output_text;
-  console.log(
-    "[AI_SERVICE] Gemini image response length:",
-    responseText?.length,
-  );
-
-  if (responseText && responseText.trim().length > 0) {
-    console.log("[AI_SERVICE] ✅ Gemini image analysis SUCCESSFUL!");
-    return responseText;
-  }
-
-  console.log(
-    "[AI_SERVICE] Gemini response object:",
-    JSON.stringify(response).substring(0, 1000),
-  );
-  throw new Error("Empty response from Gemini image analysis");
-}
-
-async function generateImageInsights({ imageBase64, imageType, caption = "" }) {
-  try {
-    return await generateGeminiImageInsights({
-      imageBase64,
-      imageType,
-      caption,
-    });
-  } catch (err) {
-    console.error(
-      "[AI_SERVICE] generateImageInsights fallback due to error:",
-      err?.message || err,
-    );
-    const fallbackResponse = `🎨 Arre yaar! Tera image upload ho gaya successfully! \n\n${caption ? `Caption: "${caption}"` : ""}\n\nPar visual analysis abhi thoda issue hai. Image safe hai and database mein save ho gaya hai. Agar detailed analysis chahiye, text se pooch le, Bodhi ready hai! 😎`;
-    return fallbackResponse;
-  }
-}
 
 async function generateVector(content) {
   try {
@@ -319,85 +241,7 @@ async function generateVector(content) {
   }
 }
 
-// Text -> Image generation using Google Generative REST endpoint
-async function generateGeminiImages(options = {}) {
-  const {
-    prompt,
-    size = "1024x1024",
-    count = 1,
-    model = "imagen-3-fast",
-  } = options;
 
-  console.log("[AI_SERVICE] generateGeminiImages called", {
-    prompt,
-    size,
-    count,
-    model,
-  });
-
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY not set in environment");
-
-  let fetchFn = null;
-  try {
-    const nf = await import("node-fetch");
-    fetchFn = nf.default;
-  } catch (e) {
-    if (typeof globalThis.fetch === "function") fetchFn = globalThis.fetch;
-  }
-
-  if (!fetchFn)
-    throw new Error("No fetch implementation available (install node-fetch)");
-
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateImages`;
-
-  const body = {
-    prompt: String(prompt || ""),
-  };
-
-  console.log("[AI_SERVICE] Image API URL:", apiUrl);
-  console.log("[AI_SERVICE] Image API request body:", JSON.stringify(body));
-
-  const res = await fetchFn(`${apiUrl}?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  const text = await res.text();
-  console.log("[AI_SERVICE] Image API response status:", res.status);
-  console.log(
-    "[AI_SERVICE] Image API response (first 500 chars):",
-    text.substring(0, 500),
-  );
-
-  if (!res.ok) {
-    console.error(
-      "[AI_SERVICE] Image API error:",
-      res.status,
-      text.substring(0, 500),
-    );
-    throw new Error(
-      `Image API error: ${res.status} - ${text.substring(0, 200)}`,
-    );
-  }
-
-  let data = {};
-  try {
-    data = JSON.parse(text);
-  } catch (e) {
-    console.error("[AI_SERVICE] Failed to parse image API response", e);
-    throw new Error("Invalid image API response");
-  }
-
-  const images = [];
-  console.log("[AI_SERVICE] Parsed API response data keys:", Object.keys(data));
-
-  if (data?.candidates && Array.isArray(data.candidates)) {
-    console.log(
-      "[AI_SERVICE] Found candidates array, length:",
-      data.candidates.length,
-    );
     for (const c of data.candidates) {
       if (c?.image?.imageBytes) {
         images.push(`data:image/png;base64,${c.image.imageBytes}`);
@@ -454,9 +298,6 @@ async function generateGeminiImages(options = {}) {
 module.exports = {
   generateResponse,
   generateResponseStream,
-  generateGeminiImageInsights,
-  generateImageInsights,
-  generateGeminiImages,
   generateVector,
   detectLanguage,
 };
