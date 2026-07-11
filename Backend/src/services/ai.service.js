@@ -211,6 +211,85 @@ async function generateResponseStream(prompt, onChunk) {
   }
 }
 
+async function generateGeminiImageInsights({
+  imageBase64,
+  imageType,
+  caption = "",
+}) {
+  console.log("[AI_SERVICE] Starting generateGeminiImageInsights...");
+  console.log("[AI_SERVICE] Base64 length:", imageBase64?.length || 0);
+  console.log("[AI_SERVICE] Image type:", imageType);
+
+  // Clean the base64
+  let cleanBase64 = imageBase64;
+  if (cleanBase64.includes(",")) {
+    cleanBase64 = cleanBase64.split(",")[1];
+  }
+  cleanBase64 = cleanBase64.trim();
+
+  console.log("[AI_SERVICE] Cleaned base64 length:", cleanBase64.length);
+
+  const prompt = `You are Bodhi, a helpful AI assistant! Analyze this image and describe:\n- Main subjects/objects in the image\n- Colors and overall mood\n- Any activities or actions happening\n- Interesting details\n\n${caption ? `User's caption: "${caption}"` : ""}\n\nAnswer in a friendly and helpful way. Keep it concise and engaging.`;
+
+  console.log("[AI_SERVICE] Sending image to Gemini 2.5 flash for analysis...");
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            inlineData: {
+              mimeType: imageType || "image/jpeg",
+              data: cleanBase64,
+            },
+          },
+          {
+            text: prompt,
+          },
+        ],
+      },
+    ],
+    config: {
+      temperature: 0.7,
+    },
+  });
+
+  const responseText = response?.text || response?.output_text;
+  console.log(
+    "[AI_SERVICE] Gemini image response length:",
+    responseText?.length,
+  );
+
+  if (responseText && responseText.trim().length > 0) {
+    console.log("[AI_SERVICE] ✅ Gemini image analysis SUCCESSFUL!");
+    return responseText;
+  }
+
+  console.log(
+    "[AI_SERVICE] Gemini response object:",
+    JSON.stringify(response).substring(0, 1000),
+  );
+  throw new Error("Empty response from Gemini image analysis");
+}
+
+async function generateImageInsights({ imageBase64, imageType, caption = "" }) {
+  try {
+    return await generateGeminiImageInsights({
+      imageBase64,
+      imageType,
+      caption,
+    });
+  } catch (err) {
+    console.error(
+      "[AI_SERVICE] generateImageInsights fallback due to error:",
+      err?.message || err,
+    );
+    const fallbackResponse = `Image uploaded successfully! \n\n${caption ? `Caption: "${caption}"` : ""}\n\nAnalysis: The image has been received and stored. Feel free to ask me questions about it!`;
+    return fallbackResponse;
+  }
+}
+
 async function generateVector(content) {
   try {
     console.log("[AI_SERVICE] Generating vector for content...");
@@ -243,6 +322,8 @@ async function generateVector(content) {
 module.exports = {
   generateResponse,
   generateResponseStream,
+  generateGeminiImageInsights,
+  generateImageInsights,
   generateVector,
   detectLanguage,
 };

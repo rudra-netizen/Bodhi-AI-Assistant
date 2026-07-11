@@ -227,6 +227,73 @@ const Home = () => {
     });
   };
 
+  const handleImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!currentChatId) {
+      alert("Please select or create a chat first.");
+      event.target.value = null;
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const imageBase64 = reader.result?.toString().split(",")[1] || "";
+        const fileType = file.type || "image/png";
+
+        const userMessage = {
+          id: Date.now(),
+          text: `Uploaded image: ${file.name}`,
+          sender: "user",
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, userMessage]);
+
+        try {
+          const response = await axios.post(
+            `${API_BASE_URL}/api/chat/image`,
+            {
+              chatId: currentChatId,
+              imageBase64,
+              imageType: fileType,
+              caption: file.name,
+            },
+            { withCredentials: true, headers: getAuthHeaders() },
+          );
+
+          const aiMessage = {
+            id: Date.now() + 1,
+            text: response.data.insights || response.data.message,
+            sender: "ai",
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, aiMessage]);
+        } catch (error) {
+          console.error("Image analysis failed:", error);
+          const errMsg = error?.response?.data?.message || error.message;
+          const errorMessage = {
+            id: Date.now(),
+            text: `Failed to analyze image: ${errMsg}`,
+            sender: "ai",
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, errorMessage]);
+        } finally {
+          setLoading(false);
+          event.target.value = null;
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Image upload error:", error);
+      setLoading(false);
+      event.target.value = null;
+    }
+  };
+
   const handleNewChat = async () => {
     const chatTitle = prompt("Enter a title for this chat:", "New Chat");
     if (chatTitle === null) return;
@@ -347,6 +414,7 @@ const Home = () => {
         loading={loading}
         onInputChange={(e) => setUserInput(e.target.value)}
         onSendMessage={handleSendMessage}
+        onImageUpload={handleImageUpload}
         messagesEndRef={messagesEndRef}
       />
     </div>
