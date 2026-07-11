@@ -6,7 +6,7 @@ import { io } from "socket.io-client";
 import axios from "axios";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:7010";
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || API_BASE_URL;
 
 const getAuthHeaders = () => {
@@ -57,6 +57,9 @@ const Home = () => {
     // ✅ Handle streaming response chunks
     newSocket.on("ai-response-chunk", (message) => {
       const chunk = message.chunk;
+      if (!chunk) {
+        return;
+      }
 
       if (!currentResponseRef.current) {
         // Create new AI message for this response stream
@@ -89,10 +92,20 @@ const Home = () => {
     // Handle stream completion
     newSocket.on("ai-response-complete", (message) => {
       console.log("✅ AI response stream completed");
-      currentResponseRef.current = null;
-      setLoading(false);
+      if (currentResponseRef.current) {
+        setLoading(false);
+        currentResponseRef.current = null;
+      } else {
+        const errorMessage = {
+          id: Date.now(),
+          text: "No response was received from the AI. Please try again.",
+          sender: "ai",
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+        setLoading(false);
+      }
 
-      // Sync with previousChats so the Sidebar stays updated
       setPreviousChats((prev) =>
         prev.map((chat) =>
           chat.id === currentChatId
