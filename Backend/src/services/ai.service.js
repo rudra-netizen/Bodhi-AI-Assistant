@@ -232,28 +232,78 @@ async function generateGeminiImageInsights({
   const prompt = `You are Bodhi, a helpful AI assistant! Analyze this image and describe:\n- Main subjects/objects in the image\n- Colors and overall mood\n- Any activities or actions happening\n- Interesting details\n\n${caption ? `User's caption: "${caption}"` : ""}\n\nAnswer in a friendly and helpful way. Keep it concise and engaging.`;
 
   console.log("[AI_SERVICE] Sending image to Gemini 2.5 flash for analysis...");
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [
-      {
-        role: "user",
-        parts: [
+  // If image is extremely large, avoid sending to API and return a friendly fallback
+  const MAX_BASE64_SIZE = 12_000_000; // ~12MB base64 (~9MB binary)
+  if (cleanBase64.length > MAX_BASE64_SIZE) {
+    console.warn(
+      `[AI_SERVICE] Image too large for remote analysis (base64 length=${cleanBase64.length}). Returning fallback.`,
+    );
+    return `Image uploaded successfully. (Image too large to analyze remotely). ${
+      caption ? `Caption: "${caption}"` : ""
+    }`;
+  }
+
+  // Retry/backoff for transient errors (e.g., 429 Too Many Requests)
+  const maxRetries = 5;
+  let attempt = 0;
+  let response = null;
+  let lastError = null;
+
+  while (attempt <= maxRetries) {
+    try {
+      response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
           {
-            inlineData: {
-              mimeType: imageType || "image/jpeg",
-              data: cleanBase64,
-            },
-          },
-          {
-            text: prompt,
+            role: "user",
+            parts: [
+              {
+                inlineData: {
+                  mimeType: imageType || "image/jpeg",
+                  data: cleanBase64,
+                },
+              },
+              {
+                text: prompt,
+              },
+            ],
           },
         ],
-      },
-    ],
-    config: {
-      temperature: 0.7,
-    },
-  });
+        config: {
+          temperature: 0.7,
+        },
+      });
+      break; // success
+    } catch (err) {
+      lastError = err;
+      const msg = (err && err.message) || JSON.stringify(err);
+      const isRateLimit = /429|Too Many Requests|quota|RateLimit/i.test(msg);
+      attempt += 1;
+      if (isRateLimit && attempt <= maxRetries) {
+        const backoffMs = Math.min(
+          30000,
+          Math.pow(2, attempt) * 1000 + Math.random() * 500,
+        );
+        console.warn(
+          `[AI_SERVICE] Gemini rate-limited (attempt ${attempt}/${maxRetries}). Backing off ${backoffMs}ms:`,
+          msg?.substring?.(0, 200) || msg,
+        );
+        await new Promise((r) => setTimeout(r, backoffMs));
+        continue;
+      }
+
+      console.error("[AI_SERVICE] Non-retryable error calling Gemini:", msg);
+      throw err;
+    }
+  }
+
+  if (!response && lastError) {
+    console.error(
+      "[AI_SERVICE] All retries failed for Gemini image analysis:",
+      lastError?.message || lastError,
+    );
+    throw lastError;
+  }
 
   const responseText = response?.text || response?.output_text;
   console.log(
