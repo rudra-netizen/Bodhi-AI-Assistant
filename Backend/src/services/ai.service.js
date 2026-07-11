@@ -211,7 +211,6 @@ async function generateResponseStream(prompt, onChunk) {
   }
 }
 
-
 async function generateVector(content) {
   try {
     console.log("[AI_SERVICE] Generating vector for content...");
@@ -239,60 +238,6 @@ async function generateVector(content) {
     console.error("Error generating vector from Gemini API:", err.message);
     return null; // Return null instead of throwing, so it doesn't block the flow
   }
-}
-
-
-    for (const c of data.candidates) {
-      if (c?.image?.imageBytes) {
-        images.push(`data:image/png;base64,${c.image.imageBytes}`);
-      } else if (c?.image?.b64) {
-        images.push(`data:image/png;base64,${c.image.b64}`);
-      } else if (typeof c === "string" && c.trim()) {
-        images.push(c.trim());
-      }
-    }
-  }
-
-  if (images.length === 0 && data?.image?.imageBytes) {
-    console.log("[AI_SERVICE] Found image.imageBytes");
-    images.push(`data:image/png;base64,${data.image.imageBytes}`);
-  }
-
-  if (images.length === 0 && data?.image?.b64) {
-    console.log("[AI_SERVICE] Found image.b64");
-    images.push(`data:image/png;base64,${data.image.b64}`);
-  }
-
-  if (images.length === 0 && data?.images && Array.isArray(data.images)) {
-    console.log("[AI_SERVICE] Found images array, length:", data.images.length);
-    for (const img of data.images) {
-      if (img.bytesBase64)
-        images.push(`data:image/png;base64,${img.bytesBase64}`);
-      else if (img.b64) images.push(`data:image/png;base64,${img.b64}`);
-      else if (typeof img === "string" && img.trim()) images.push(img.trim());
-    }
-  }
-
-  if (
-    images.length === 0 &&
-    typeof data?.image === "string" &&
-    data.image.trim()
-  ) {
-    console.log("[AI_SERVICE] Found string image data");
-    images.push(data.image.trim());
-  }
-
-  console.log("[AI_SERVICE] Total images extracted:", images.length);
-
-  if (images.length === 0) {
-    console.error(
-      "[AI_SERVICE] No images returned from API. Full response:",
-      JSON.stringify(data),
-    );
-    throw new Error("No images returned from image API");
-  }
-
-  return images.slice(0, count);
 }
 
 module.exports = {

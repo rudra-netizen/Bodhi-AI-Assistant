@@ -211,14 +211,6 @@ const Home = () => {
     }
 
     const inputText = userInput.trim();
-    // Auto-detect image generation requests
-    const imageTrigger =
-      /\b(generate|create|make)\b.*\b(image|picture|photo)\b/i;
-    if (imageTrigger.test(inputText)) {
-      handleGenerateImage(inputText);
-      setUserInput("");
-      return;
-    }
     const userMessage = {
       id: Date.now(),
       text: inputText,
@@ -233,136 +225,6 @@ const Home = () => {
       content: inputText,
       chat: currentChatId,
     });
-  };
-
-  const handleGenerateImage = async (promptParam = null) => {
-    const promptText =
-      (promptParam && String(promptParam).trim()) || userInput.trim();
-    if (!promptText) return;
-    if (!currentChatId) {
-      alert("Please select or create a chat first.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const userMessage = {
-        id: Date.now(),
-        text: `Generate image: ${promptText}`,
-        sender: "user",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, userMessage]);
-      if (!promptParam) setUserInput("");
-
-      const response = await axios.post(
-        `${API_BASE_URL}/api/chat/generate`,
-        {
-          chatId: currentChatId,
-          prompt: promptText,
-          size: "1024x1024",
-          count: 1,
-        },
-        { withCredentials: true, headers: getAuthHeaders() },
-      );
-
-      const images = response.data.images || [];
-      const normalizedImages = images.map((img) => {
-        let imageText = String(img || "").trim();
-        if (imageText && !imageText.startsWith("data:image")) {
-          imageText = `data:image/png;base64,${imageText}`;
-        }
-        return imageText;
-      });
-      const aiMessages = normalizedImages.map((img) => ({
-        id: Date.now() + Math.random(),
-        text: img,
-        sender: "ai",
-        timestamp: new Date(),
-      }));
-      setMessages((prev) => [...prev, ...aiMessages]);
-    } catch (error) {
-      console.error("Image generation failed:", error);
-      const errMsg = error?.response?.data?.message || error.message;
-      const errDetails =
-        error?.response?.data?.details || error?.response?.data?.error || null;
-      const errorMessage = {
-        id: Date.now(),
-        text: `Failed to generate image: ${errMsg}${errDetails ? ` (${JSON.stringify(errDetails)})` : ""}`,
-        sender: "ai",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleImageUpload = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!currentChatId) {
-      alert("Please select or create a chat first.");
-      event.target.value = null;
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const imageBase64 = reader.result?.toString().split(",")[1] || "";
-        const fileType = file.type || "image/png";
-
-        const userMessage = {
-          id: Date.now(),
-          text: `Uploaded image: ${file.name}`,
-          sender: "user",
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, userMessage]);
-
-        try {
-          const response = await axios.post(
-            `${API_BASE_URL}/api/chat/image`,
-            {
-              chatId: currentChatId,
-              imageBase64,
-              imageType: fileType,
-              caption: file.name,
-            },
-            { withCredentials: true, headers: getAuthHeaders() },
-          );
-
-          const aiMessage = {
-            id: Date.now() + 1,
-            text: response.data.insights || response.data.message,
-            sender: "ai",
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, aiMessage]);
-        } catch (error) {
-          console.error("Image analysis failed:", error);
-          const errMsg = error?.response?.data?.message || error.message;
-          const errorMessage = {
-            id: Date.now(),
-            text: `Failed to analyze image: ${errMsg}`,
-            sender: "ai",
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, errorMessage]);
-        } finally {
-          setLoading(false);
-          event.target.value = null;
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error("Image upload error:", error);
-      setLoading(false);
-      event.target.value = null;
-    }
   };
 
   const handleNewChat = async () => {
@@ -485,8 +347,6 @@ const Home = () => {
         loading={loading}
         onInputChange={(e) => setUserInput(e.target.value)}
         onSendMessage={handleSendMessage}
-        onImageUpload={handleImageUpload}
-        onGenerateImage={handleGenerateImage}
         messagesEndRef={messagesEndRef}
       />
     </div>

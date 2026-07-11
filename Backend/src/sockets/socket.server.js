@@ -276,7 +276,17 @@ function initSocketServer(httpServer) {
         }
       }
     });
+
+    socket.on("disconnect", () => {
+      console.log("👋 User disconnected:", socket.user?.email || socket.id);
+    });
+
+    socket.on("error", (error) => {
+      console.error("❌ Socket error:", error);
+    });
   });
+
+  return io;
 }
 
 module.exports = initSocketServer;

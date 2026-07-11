@@ -72,8 +72,6 @@ const ChatWindow = ({
   loading,
   onInputChange,
   onSendMessage,
-  onImageUpload,
-  onGenerateImage,
   messagesEndRef,
 }) => {
   return (
@@ -94,24 +92,7 @@ const ChatWindow = ({
                 {message.sender === "user" ? "👤" : "🤖"}
               </div>
               <div className="message-content">
-                {message &&
-                message.text &&
-                typeof message.text === "string" &&
-                (/^data:image\/.+;base64,/.test(message.text) ||
-                  /^[A-Za-z0-9+/=\n\r]+$/.test(message.text)) ? (
-                  <img
-                    src={
-                      message.text.startsWith("data:image")
-                        ? message.text
-                        : `data:image/png;base64,${message.text}`
-                    }
-                    alt="generated"
-                    className="generated-image"
-                    style={{ maxWidth: "320px", borderRadius: "8px" }}
-                  />
-                ) : (
-                  renderMessageContent(message.text)
-                )}
+                {message && message.text && renderMessageContent(message.text)}
               </div>
             </div>
           ))
@@ -143,25 +124,6 @@ const ChatWindow = ({
             disabled={loading}
             className="message-input"
           />
-          <label className="image-upload-label" title="Upload an image">
-            📷
-            <input
-              type="file"
-              accept="image/*"
-              onChange={onImageUpload}
-              disabled={loading}
-              hidden
-            />
-          </label>
-          <button
-            type="button"
-            className="generate-btn"
-            onClick={() => onGenerateImage && onGenerateImage()}
-            disabled={loading || !userInput.trim()}
-            title="Generate image from prompt"
-          >
-            🎨
-          </button>
           <button
             type="submit"
             disabled={loading || !userInput.trim()}
