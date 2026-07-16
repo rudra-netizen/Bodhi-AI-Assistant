@@ -243,10 +243,15 @@ async function googleAuth(req, res) {
       message: "Invalid action",
     });
   } catch (error) {
-    console.error("Google Auth Error:", error.message);
+    console.error("Google Auth Error:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    });
     return res.status(401).json({
       message: "Invalid token or authentication failed",
-      error: error.message,
+      error: error.message || "Unknown error",
+      details: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
   }
 }
