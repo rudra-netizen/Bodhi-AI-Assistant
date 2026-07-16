@@ -161,6 +161,12 @@ async function googleAuth(req, res) {
 
         const decoded = JSON.parse(Buffer.from(parts[1], "base64").toString());
         console.log("✅ Token decoded successfully (without verification)");
+        console.log("📦 Decoded payload:", {
+          has_email: !!decoded.email,
+          has_sub: !!decoded.sub,
+          has_given_name: !!decoded.given_name,
+          keys: Object.keys(decoded).slice(0, 10),
+        });
         payload = decoded;
       } catch (decodeError) {
         console.error("❌ Token decode failed:", decodeError.message);
@@ -168,10 +174,22 @@ async function googleAuth(req, res) {
       }
     }
 
-    const googleId = payload.sub;
-    const email = payload.email;
-    const firstname = payload.given_name || "User";
-    const lastname = payload.family_name || "";
+    // Safely extract fields with fallbacks
+    const googleId = payload.sub || payload.jti || "unknown";
+    const email = payload.email?.toLowerCase().trim();
+    const firstname =
+      payload.given_name || payload.name?.split(" ")[0] || "User";
+    const lastname =
+      payload.family_name || payload.name?.split(" ").slice(1).join(" ") || "";
+
+    if (!email) {
+      console.error("❌ Email not found in token payload:", {
+        payload_keys: Object.keys(payload),
+      });
+      return res.status(400).json({
+        message: "Email not found in Google token",
+      });
+    }
 
     // Check if user already exists
     let user = await userModel.findOne({ email });
