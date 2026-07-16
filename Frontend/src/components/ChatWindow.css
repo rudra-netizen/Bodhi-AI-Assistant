@@ -202,6 +202,88 @@
   padding: 12px 16px;
 }
 
+/* Loading / typing bubble styles */
+.loading .message-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 110px;
+  min-width: 88px;
+  max-width: 60%;
+  padding: 10px 14px;
+  position: relative;
+}
+
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+}
+
+.typing-indicator span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.18);
+  opacity: 0.6;
+  transform: translateY(0);
+  animation: typing-bounce 1.2s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(1) {
+  animation-delay: 0s;
+}
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+@keyframes typing-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.6;
+  }
+  40% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+/* subtle shimmer for loading bubble */
+.loading .message-content::after {
+  content: "";
+  position: absolute;
+  left: -40%;
+  top: 0;
+  height: 100%;
+  width: 60%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.28) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: skewX(-18deg);
+  animation: shimmer 1.6s infinite;
+  border-radius: 12px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -60%;
+  }
+  100% {
+    left: 120%;
+  }
+}
+
 .typing-indicator {
   display: flex;
   gap: 4px;
